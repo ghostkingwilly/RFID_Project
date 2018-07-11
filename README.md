@@ -21,6 +21,26 @@
     * We depict what region user enter and what object user take.
 ---
 
-## Related Work
+## Paper
+
+### Abstract 
 
 ---
+### Introduction
+
+---
+### Related Work
+
+---
+### System Architecture
+
+---
+### Evaluation
+
+---
+### Conclusion
+
+---
+### Reference
+
+
