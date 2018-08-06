@@ -294,7 +294,7 @@ float gate_impl(void){
         win_index = (win_index + 1) % win_length; 
         //Threshold for detecting negative/positive edges
         sample_thresh = avg_ampl * THRESH_FRACTION;  
-        if( !(gate_status == 1) ){ // gate close 
+        if( gate_status != 1 ){ // gate close 
             //Tracking DC offset (only during T1)
             n_samples++;
             // Potitive edge -> Negative edge
@@ -305,7 +305,6 @@ float gate_impl(void){
             // Negative edge -> Positive edge 
             else if (sample_ampl > sample_thresh && signal_state == 0){
                 signal_state = 1;
-				cout << "num pulses: " << num_pulses << endl;
 				// 7/3 no one is over 5
                 if (n_samples > n_samples_PW/2)
                     num_pulses++; 
@@ -313,7 +312,9 @@ float gate_impl(void){
                     num_pulses = 0;
                 n_samples = 0;
             }
-
+			cout << "num samples: " << n_samples << endl;
+			cout << "signal state: " << signal_state << endl;
+			cout << "num pulses: " << num_pulses << endl;
             if(n_samples > n_samples_T1 && signal_state == 1 && num_pulses > NUM_PULSES_COMMAND){
                 tagIndex = i;
                 //Index_tag = tagIndex;
@@ -325,7 +326,7 @@ float gate_impl(void){
             }
         }
         else{  // gate open
-			//cout << "Gate 1" << n_samples << endl; 
+			cout << "Gate 1" << n_samples << endl; 
             n_samples++;
             afterGate.push_back(beforeGate[i]);          
             if (n_samples >= n_samples_to_ungate){
@@ -441,6 +442,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 	uhd::set_thread_priority_safe();
 	uhd::time_spec_t refer;
 
+	// 07/16 : add the other argument
+	string tx_ant, rx_ant, tx_subdev, rx_subdev, ref, otw;
+	double tx_bw, rx_bw, lo_off;
 	// USRP setting
 	//rate = 1e6;
 	//freq = 910e6;
@@ -456,7 +460,16 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 		("f", po::value<double>(&freq)->default_value(910e6), "RF center frequency in Hz")
 		("g", po::value<double>(&gain)->default_value(0.0), "gain for the RF chain")
 		("s", po::value<double>(&r_sec)->default_value(RECV_SEC), "recording seconds")
-		("c", po::value<size_t>(&r_cnt)->default_value(90), "round count");
+		("c", po::value<size_t>(&r_cnt)->default_value(90), "round count")        
+		("tx-ant", po::value<string>(&tx_ant)->default_value("TX/RX"), "transmit antenna selection")
+        ("rx-ant", po::value<string>(&rx_ant)->default_value("RX2"), "receive antenna selection")
+        ("tx-subdev", po::value<string>(&tx_subdev)->default_value("A:0"), "transmit subdevice specification")
+        ("rx-subdev", po::value<string>(&rx_subdev)->default_value("A:0"), "receive subdevice specification")
+        ("tx-bw", po::value<double>(&tx_bw), "analog transmit filter bandwidth in Hz")
+        ("rx-bw", po::value<double>(&rx_bw), "analog receive filter bandwidth in Hz")
+        ("ref", po::value<string>(&ref)->default_value("external"), "clock reference (internal, external, mimo)")
+        ("otw", po::value<string>(&otw)->default_value("sc16"), "specify the over-the-wire sample mode")
+        ("lo_off", po::value<double>(&lo_off), "Offset for frontend LO in Hz (optional)");
 
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -504,6 +517,30 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
     stream_cmd.stream_now   = false;
     usrp_rx->issue_stream_cmd(stream_cmd);
 
+	//set the antenna
+    if (vm.count("tx-ant")) usrp_tx->set_tx_antenna(tx_ant);
+	if (vm.count("rx-ant")) usrp_rx->set_rx_antenna(rx_ant);
+
+	//always select the subdevice first, the channel mapping affects the other settings
+    if (vm.count("tx-subdev")) usrp_tx->set_tx_subdev_spec(tx_subdev);
+    if (vm.count("rx-subdev")) usrp_rx->set_rx_subdev_spec(rx_subdev);
+
+	uhd::tune_request_t tx_tune_request;
+    if(vm.count("lo_off")) tx_tune_request = uhd::tune_request_t(freq, lo_off);
+    else tx_tune_request = uhd::tune_request_t(freq);
+
+	//set the analog frontend filter bandwidth
+    if (vm.count("tx-bw")){
+        std::cout << boost::format("Setting TX Bandwidth: %f MHz...") % tx_bw << std::endl;
+        usrp_tx->set_tx_bandwidth(tx_bw);
+        std::cout << boost::format("Actual TX Bandwidth: %f MHz...") % usrp_tx->get_tx_bandwidth() << std::endl << std::endl;
+    }
+	if (vm.count("rx-bw")){
+        std::cout << boost::format("Setting RX Bandwidth: %f MHz...") % (rx_bw/1e6) << std::endl;
+        usrp_rx->set_rx_bandwidth(rx_bw);
+        std::cout << boost::format("Actual RX Bandwidth: %f MHz...") % (usrp_rx->get_rx_bandwidth()/1e6) << std::endl << std::endl;
+    }
+
 	// Rx cleaning
 	size_t done_cleaning;
 	done_cleaning = 0;
@@ -529,17 +566,25 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 	cout << "Buffer size: " << buff.size() << endl;
 	memcpy(pkt_tx, &buff.front(), buff.size()*sizeof(gr_complex));
 
+	ofstream outfile2;
+    outfile2.open("filter_samples.bin", std::ofstream::binary);
+
+	ofstream outf2;
+    outf2.open("tx_samples.bin", std::ofstream::binary);
+
+	size_t tx_samples  = 0;
 	while(!stop_signal) { //&& tx_round<5
 		// Willy : run for 5
 		// Willy : check the RN16 correct, to resend query
-		size_t tx_samples  = 0;
+	//	size_t tx_samples  = 0; //*** This line BIG Bug: move out of the not stop signal while loop? ***//
 		//size_t rx_wnd = 0; // number of windows
 		//size_t rx_round_cnt = 0; // number of samples in a round (window)
 		size_t read_cnt = 0;
 
 		// Step 1: send query
 		// Willy: set upper bound QUERY_SIZE : 6800 <- need to be lower and be the const multiple of wimdow size
-		while(tx_samples < QUERY_SIZE) {
+		while(tx_samples < QUERY_SIZE) { //*** This line Bug: while to if? ***//
+		//if(tx_samples < QUERY_SIZE) {
 			// Willy: send with size 200(lower)
 			// TODO Willy : check whether the last block sync : there is no distinct gap
 			tx_samples += usrp_tx->get_device()->send(pkt_tx+tx_samples, SYM_LEN, tx_md, C_FLOAT32, S_ONE_PKT);
@@ -550,9 +595,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 					cout << "last pkt " << i << " tx: " << pkt_tx[i] << endl;
 				}
 			}*/
-			
 			//tx_samples += usrp_tx->get_device()->send(&buff.front(), buff.size(), tx_md, C_FLOAT32, S_ONE_PKT);
-			fprintf(stderr, "query_sendSize = %zu\n",tx_samples);
+			//fprintf(stderr, "query_sendSize = %zu\n",tx_samples);
 			
 			tx_md.has_time_spec = false;
 
@@ -563,12 +607,20 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 					read_cnt = s_cnt - rx_cnt;
 				rx_cnt += usrp_rx->get_device()->recv(pkt_rx+rx_cnt, read_cnt, rx_md, C_FLOAT32, R_ONE_PKT);
 			}
+			// 07/19 modified : try to receive the signal once
+			//else if(rx_cnt == s_cnt){
+				// stop the recv
+				
+			//}
 			//cout << "[in step 1] tx round: " << tx_samples << ", rx count: " << rx_cnt  << endl;
 		}
-
+		if (outf2.is_open())
+            outf2.write((const char*)&pkt_tx, tx_samples*sizeof(gr_complex));
 		// Willy : downsampling
 		filter();
 		//cout << "BeforeGate size: " << beforeGate.size() <<endl; 
+		if (outfile2.is_open())
+            outfile2.write((const char*)&beforeGate.front(), beforeGate.size()*sizeof(gr_complex));
 
 		// Willy : call gate
 		float cwAmpl = gate_impl();
@@ -631,7 +683,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 	tx_md.end_of_burst		= true; 
 	
 	usrp_tx->get_device()->send(zeros, SYM_LEN, tx_md, C_FLOAT32, S_ONE_PKT);
-	
+	if(outfile2.is_open())
+        outfile2.close();
 	dump_signals();
 	end_sys();
     boost::this_thread::sleep(boost::posix_time::seconds(1));
