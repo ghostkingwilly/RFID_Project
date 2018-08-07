@@ -68,7 +68,7 @@ static bool stop_signal = false;
 //generating vector
 std::vector<float> query_bits, query_adjust_bits, cw_ack, cw_query, preamble, delim, data_0, 
 				   data_1,rtcal, trcal, ack_bits,frame_sync, p_down, cw, query_rep, nak;
-vector< complex<float> > buff(8000), beforeGate, afterGate;
+vector< complex<float> > buff(8000), beforeGate, afterGate, allsig;
 
 void crc_append(std::vector<float> & q){
     int crc[] = {1,0,0,1,0};
@@ -250,6 +250,7 @@ void gen_query(void){
 //Willy: down sampling
 void filter(void){
 	// Willy : s_cnt -> size of pkt_rx
+	cout << "s_cnt size: " << s_cnt << endl;
     int now = 0, top, down, size = s_cnt/decim;
     beforeGate.clear();
     for(int i=0;i<size;i++){
@@ -305,22 +306,20 @@ float gate_impl(void){
             // Negative edge -> Positive edge 
             else if (sample_ampl > sample_thresh && signal_state == 0){
                 signal_state = 1;
-				// 7/3 no one is over 5
                 if (n_samples > n_samples_PW/2)
                     num_pulses++; 
                 else
                     num_pulses = 0;
                 n_samples = 0;
             }
-			cout << "num samples: " << n_samples << endl;
-			cout << "signal state: " << signal_state << endl;
-			cout << "num pulses: " << num_pulses << endl;
+			//cout << "num samples: " << n_samples << endl;
+			//cout << "signal state: " << signal_state << endl;
+			//cout << "num pulses: " << num_pulses << endl;
             if(n_samples > n_samples_T1 && signal_state == 1 && num_pulses > NUM_PULSES_COMMAND){
                 tagIndex = i;
                 //Index_tag = tagIndex;
                 gate_status = 1;
                 afterGate.push_back(beforeGate[i]);
-				//cout << "Gate 2" << n_samples << endl;  
                 num_pulses = 0; 
                 n_samples =  1; // Count number of samples passed to the next block
             }
@@ -383,9 +382,9 @@ void init_sys() {
 	memset(ones, 0, sizeof(ones));
 	for (size_t i = 0; i < SYM_LEN; i++)
 	{
-		ones[i].real() = 1;
+		ones[i].real(1);
 	}
-	
+
 	// put generated signal in pkt_tx
 	//in_file = fopen(in_name.c_str(), "rb");
 	//read freq_data file to freq_data
@@ -393,7 +392,6 @@ void init_sys() {
 	//fclose(in_file);
 	//for (size_t i=0; i<10; i++)
 	//	cout << "(" << pkt_tx[i].real() << ", " << pkt_tx[i].imag() << ")" << endl;
-
 
 	// Rx buffer initialize
 	printf("New receiving signal buffer\n");
@@ -408,7 +406,7 @@ void init_sys() {
 
 	init_usrp();
 
-	// lab4: use external clock for synchronziation
+	// use external clock for synchronziation
 	sync_clock();
 
 	init_stream();
@@ -436,24 +434,22 @@ void end_sys() {
 
 void sig_int_handler(int){stop_signal = true;}
 
-
-
 int UHD_SAFE_MAIN(int argc, char *argv[]){
 	uhd::set_thread_priority_safe();
 	uhd::time_spec_t refer;
 
-	// 07/16 : add the other argument
+	// add the other argument
 	string tx_ant, rx_ant, tx_subdev, rx_subdev, ref, otw;
 	double tx_bw, rx_bw, lo_off;
 	// USRP setting
-	//rate = 1e6;
-	//freq = 910e6;
+	// rate = 1e6;
+	// freq = 910e6;
 
 	po::options_description desc("Allowed options");
 	desc.add_options()
 		("help", "help message")
 		("txip", po::value<string>(&usrp_tx_ip)->default_value("addr=192.168.10.2"), "tx usrp's IP")
-		("rxip", po::value<string>(&usrp_rx_ip)->default_value("addr=192.168.10.5"), "rx usrp's IP")
+		("rxip", po::value<string>(&usrp_rx_ip)->default_value("addr=192.168.10.4"), "rx usrp's IP")
 		("in", po::value<string>(&in_name)->default_value("wcs_trace/tx_time_signals.bin"), "binary samples file")
 		("out", po::value<string>(&out_name)->default_value("txrx_out.bin"), "signal file")
 		("r", po::value<double>(&rate)->default_value(1e6), "sampling rate")
@@ -462,7 +458,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 		("s", po::value<double>(&r_sec)->default_value(RECV_SEC), "recording seconds")
 		("c", po::value<size_t>(&r_cnt)->default_value(90), "round count")        
 		("tx-ant", po::value<string>(&tx_ant)->default_value("TX/RX"), "transmit antenna selection")
-        ("rx-ant", po::value<string>(&rx_ant)->default_value("RX2"), "receive antenna selection")
+        ("rx-ant", po::value<string>(&rx_ant)->default_value("TX/RX"), "receive antenna selection")
         ("tx-subdev", po::value<string>(&tx_subdev)->default_value("A:0"), "transmit subdevice specification")
         ("rx-subdev", po::value<string>(&rx_subdev)->default_value("A:0"), "receive subdevice specification")
         ("tx-bw", po::value<double>(&tx_bw), "analog transmit filter bandwidth in Hz")
@@ -486,6 +482,21 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 	std::signal(SIGINT, &sig_int_handler);
 	std::cout << "Press Ctrl + C to stop streaming..." << std::endl;
 
+	// Willy : initial the whole message
+	// Willy : generate the query sequence
+	readerInit();
+	gen_query();
+	cout << "Buffer size: " << buff.size() << endl;
+	memcpy(pkt_tx, &buff.front(), buff.size()*sizeof(gr_complex));
+
+	// load data after filter
+	ofstream outfile2;
+    outfile2.open("filter_samples_n.bin", std::ofstream::binary);
+
+	// load data sent
+	ofstream outf2;
+    outf2.open("tx_samples.bin", std::ofstream::binary);
+	
 	// Tx cleaning
 	tx_md.start_of_burst    = true;
 	tx_md.end_of_burst      = false;
@@ -497,16 +508,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 	tx_md.start_of_burst    = false;
 	tx_md.end_of_burst		= true; 
 	usrp_tx->get_device()->send(zeros, SYM_LEN, tx_md, C_FLOAT32, S_ONE_PKT);
-
-
-	// Send Signals until press ^C
-	// HINT: You have to send signals here
-	// How many symbols you have to send? Ans: sym_cnt
-	// pkt: records the samples which we want to send
 	
-	// remove content of within while loop
-	
-	// lab4: Setup time
 	boost::this_thread::sleep(boost::posix_time::milliseconds(WARM_UP_TIME));
 	cout << "Current clock time: " << usrp_tx->get_time_now().get_real_secs() << endl;
 	tx_md.time_spec = usrp_tx->get_time_now() + uhd::time_spec_t(1, 0, 1e8/inter); // set tx timer at (now + 1) sec
@@ -541,12 +543,24 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
         std::cout << boost::format("Actual RX Bandwidth: %f MHz...") % (usrp_rx->get_rx_bandwidth()/1e6) << std::endl << std::endl;
     }
 
+	// new setting
+	std::cout << boost::format("Setting TX Rate: %f Msps...") % (rate/1e6) << std::endl;
+    usrp_tx->set_tx_rate(rate);
+    //std::cout << boost::format("Actual TX Rate: %f Msps...") % (tx_usrp->get_tx_rate()/1e6) << std::endl << std::endl;
+
+	size_t tx_round = 0;
+	size_t rx_cnt = 0;
+	
+	//bool flag = 0; // onetime
+
 	// Rx cleaning
 	size_t done_cleaning;
 	done_cleaning = 0;
-	while (!done_cleaning) {
+	while (!done_cleaning) 
+	{
 		usrp_rx->get_device()->recv(pkt_rx, SYM_LEN, rx_md, C_FLOAT32, R_ONE_PKT);
-		if(rx_md.time_spec.get_real_secs() >= time_start_recv.get_real_secs()) {
+		if(rx_md.time_spec.get_real_secs() >= time_start_recv.get_real_secs()) 
+		{
 			done_cleaning = 1;
 		}
 	}
@@ -556,27 +570,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 	tx_md.has_time_spec     = true;
 	tx_md.end_of_burst      = false;
 
-	size_t tx_round = 0;
-	size_t rx_cnt = 0;
-
-	// Willy : initial the whole message
-	// Willy : generate the query sequence
-	readerInit();
-	gen_query();
-	cout << "Buffer size: " << buff.size() << endl;
-	memcpy(pkt_tx, &buff.front(), buff.size()*sizeof(gr_complex));
-
-	ofstream outfile2;
-    outfile2.open("filter_samples.bin", std::ofstream::binary);
-
-	ofstream outf2;
-    outf2.open("tx_samples.bin", std::ofstream::binary);
-
-	size_t tx_samples  = 0;
-	while(!stop_signal) { //&& tx_round<5
-		// Willy : run for 5
+	while(!stop_signal) {
 		// Willy : check the RN16 correct, to resend query
-	//	size_t tx_samples  = 0; //*** This line BIG Bug: move out of the not stop signal while loop? ***//
+		size_t tx_samples  = 0; //*** This line BIG Bug: move out of the not stop signal while loop? ***//
 		//size_t rx_wnd = 0; // number of windows
 		//size_t rx_round_cnt = 0; // number of samples in a round (window)
 		size_t read_cnt = 0;
@@ -586,8 +582,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 		while(tx_samples < QUERY_SIZE) { //*** This line Bug: while to if? ***//
 		//if(tx_samples < QUERY_SIZE) {
 			// Willy: send with size 200(lower)
-			// TODO Willy : check whether the last block sync : there is no distinct gap
 			tx_samples += usrp_tx->get_device()->send(pkt_tx+tx_samples, SYM_LEN, tx_md, C_FLOAT32, S_ONE_PKT);
+
 			/*if(tx_samples>6700)
 			{
 				for(int i=6700; i<8000; ++i)
@@ -595,8 +591,6 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 					cout << "last pkt " << i << " tx: " << pkt_tx[i] << endl;
 				}
 			}*/
-			//tx_samples += usrp_tx->get_device()->send(&buff.front(), buff.size(), tx_md, C_FLOAT32, S_ONE_PKT);
-			//fprintf(stderr, "query_sendSize = %zu\n",tx_samples);
 			
 			tx_md.has_time_spec = false;
 
@@ -607,35 +601,33 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 					read_cnt = s_cnt - rx_cnt;
 				rx_cnt += usrp_rx->get_device()->recv(pkt_rx+rx_cnt, read_cnt, rx_md, C_FLOAT32, R_ONE_PKT);
 			}
-			// 07/19 modified : try to receive the signal once
-			//else if(rx_cnt == s_cnt){
-				// stop the recv
-				
-			//}
-			//cout << "[in step 1] tx round: " << tx_samples << ", rx count: " << rx_cnt  << endl;
 		}
-		if (outf2.is_open())
-            outf2.write((const char*)&pkt_tx, tx_samples*sizeof(gr_complex));
+		if (outf2.is_open()) // check for the sending message
+		{
+			outf2.write((const char*)&pkt_tx, tx_samples*sizeof(gr_complex));
+		}
+
 		// Willy : downsampling
 		filter();
-		//cout << "BeforeGate size: " << beforeGate.size() <<endl; 
 		if (outfile2.is_open())
             outfile2.write((const char*)&beforeGate.front(), beforeGate.size()*sizeof(gr_complex));
 
 		// Willy : call gate
 		float cwAmpl = gate_impl();
+		//if(afterGate.size()==0 && flag ==0)
 		if(afterGate.size()==0)
 		{
             fprintf(stderr, "no sample passes gate\n");
+			//flag = 1;// one time
             continue;    
         }
-		else 
+		//else if(flag == 1) // one time
+		else
 		{
 			break;
 		}
 		// call correlation
-		// call decoding
-		
+		// call decoding	
 
 		//Step 2: receive RN16
 		// while (true) {
@@ -677,14 +669,15 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 		}*/
 		cout << "tx round: " << tx_round << ", rx count: " << rx_cnt << endl;
 		tx_round++;
+
 	}
 
 	tx_md.start_of_burst    = false;
 	tx_md.end_of_burst		= true; 
-	
 	usrp_tx->get_device()->send(zeros, SYM_LEN, tx_md, C_FLOAT32, S_ONE_PKT);
 	if(outfile2.is_open())
         outfile2.close();
+	
 	dump_signals();
 	end_sys();
     boost::this_thread::sleep(boost::posix_time::seconds(1));
