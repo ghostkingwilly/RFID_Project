@@ -10,6 +10,7 @@
 #include <iostream>
 #include <complex>
 #include <cmath>
+#include <algorithm>
 
 #include <csignal>
 #include <stdio.h>
@@ -250,10 +251,9 @@ void gen_query(void){
 //Willy: down sampling
 void filter(void){
 	// Willy : s_cnt -> size of pkt_rx
-	cout << "s_cnt size: " << s_cnt << endl;
     int now = 0, top, down, size = s_cnt/decim;
     beforeGate.clear();
-    for(int i=0;i<size;i++){
+	for(int i=0;i<size;i++){
         complex<float> tmp(0,0);
         if(now<25){
             top = 24;
@@ -262,11 +262,13 @@ void filter(void){
         else{
             top = now;
             down = now-25;
-        } 
+		} 
         for(int j=top;j>down;j--)
             tmp += pkt_rx[j];
         beforeGate.push_back(tmp);
         now += decim;
+		
+		
     }
     return;
 }
@@ -275,7 +277,7 @@ void filter(void){
 float gate_impl(void){
     vector<float> win_samples;
     int n_items = beforeGate.size();   
-    int n_samples_T1 = T1_D * (s_rate / pow(10,6)); // 250
+    int n_samples_T1 = T1_D * (s_rate / pow(10,6))/5; // 250/5 for filter
     int n_samples_PW = PW_D * (s_rate / pow(10,6)); // 24
     int n_samples_TAG_BIT = TAG_BIT_D * (s_rate / pow(10,6));  
     int win_length = WIN_SIZE_D * (s_rate/ pow(10,6));
@@ -285,7 +287,11 @@ float gate_impl(void){
 
     int n_samples_to_ungate = (RN16_BITS + TAG_PREAMBLE_BITS) * n_samples_TAG_BIT + 2*n_samples_TAG_BIT;
     int n_samples=0, win_index=0, tagIndex; 
-    float num_pulses=0, THRESH_FRACTION = 0.75, sample_thresh, sample_ampl=0, avg_ampl=0, cwAmpl=0;
+    float num_pulses=0, THRESH_FRACTION = 0.87, sample_thresh=1.1, sample_ampl=0, avg_ampl=0, cwAmpl=0;// origin: THRESH_FRACTION = 0.75
+	n_samples_to_ungate /= 5;//filter
+	n_samples_TAG_BIT /= 5;//filter
+
+	afterGate.clear();
 
     for(int i = 0; i < n_items; i++){
         // Tracking average amplitude
@@ -294,7 +300,9 @@ float gate_impl(void){
         win_samples[win_index] = sample_ampl; 
         win_index = (win_index + 1) % win_length; 
         //Threshold for detecting negative/positive edges
-        sample_thresh = avg_ampl * THRESH_FRACTION;  
+        sample_thresh = avg_ampl * THRESH_FRACTION; 
+
+		//cout << "sample_thresh " << sample_thresh << "avg " << avg_ampl << " THRESH " <<  THRESH_FRACTION << endl;
         if( gate_status != 1 ){ // gate close 
             //Tracking DC offset (only during T1)
             n_samples++;
@@ -306,10 +314,12 @@ float gate_impl(void){
             // Negative edge -> Positive edge 
             else if (sample_ampl > sample_thresh && signal_state == 0){
                 signal_state = 1;
+				//cout << "!!!!!! signal_state " << i << " avg ampl " << avg_ampl << " sample_thresh: " << sample_thresh << endl;// tune~~~~
                 if (n_samples > n_samples_PW/2)
                     num_pulses++; 
                 else
                     num_pulses = 0;
+				//cout << n_samples << " " << num_pulses << endl;
                 n_samples = 0;
             }
 			//cout << "num samples: " << n_samples << endl;
@@ -317,6 +327,8 @@ float gate_impl(void){
 			//cout << "num pulses: " << num_pulses << endl;
             if(n_samples > n_samples_T1 && signal_state == 1 && num_pulses > NUM_PULSES_COMMAND){
                 tagIndex = i;
+				//cout << "!!!!!!!!!!!!!!!!!!" << endl;
+				cout << "tag index: " << tagIndex << endl;
                 //Index_tag = tagIndex;
                 gate_status = 1;
                 afterGate.push_back(beforeGate[i]);
@@ -325,7 +337,7 @@ float gate_impl(void){
             }
         }
         else{  // gate open
-			cout << "Gate 1" << n_samples << endl; 
+			//cout << "Gate 1" << n_samples << endl; 
             n_samples++;
             afterGate.push_back(beforeGate[i]);          
             if (n_samples >= n_samples_to_ungate){
@@ -340,7 +352,6 @@ float gate_impl(void){
 }
 
 void init_usrp() {
-	// lab4: configure multiple usrp
 	usrp_tx = uhd::usrp::multi_usrp::make(usrp_tx_ip);
 	usrp_rx = uhd::usrp::multi_usrp::make(usrp_rx_ip);
 	usrp_tx->set_rx_rate(rate * 2);
@@ -357,6 +368,9 @@ void init_usrp() {
 	usrp_rx->set_rx_gain(gain);
 	usrp_tx->set_tx_gain(gain);
 	usrp_rx->set_tx_gain(gain);	
+
+	// turn off the DC offset tune
+	usrp_rx->set_rx_dc_offset(false);
 }
 
 void sync_clock() {
@@ -489,6 +503,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 	cout << "Buffer size: " << buff.size() << endl;
 	memcpy(pkt_tx, &buff.front(), buff.size()*sizeof(gr_complex));
 
+
 	// load data after filter
 	ofstream outfile2;
     outfile2.open("filter_samples_n.bin", std::ofstream::binary);
@@ -496,6 +511,10 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 	// load data sent
 	ofstream outf2;
     outf2.open("tx_samples.bin", std::ofstream::binary);
+
+	// load data gate
+	ofstream outf3;
+    outf3.open("gate.bin", std::ofstream::binary);
 	
 	// Tx cleaning
 	tx_md.start_of_burst    = true;
@@ -570,7 +589,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 	tx_md.has_time_spec     = true;
 	tx_md.end_of_burst      = false;
 
-	while(!stop_signal) {
+	while(!stop_signal && tx_round < 3) { //&& tx_round < 3
 		// Willy : check the RN16 correct, to resend query
 		size_t tx_samples  = 0; //*** This line BIG Bug: move out of the not stop signal while loop? ***//
 		//size_t rx_wnd = 0; // number of windows
@@ -609,8 +628,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 
 		// Willy : downsampling
 		filter();
-		if (outfile2.is_open())
-            outfile2.write((const char*)&beforeGate.front(), beforeGate.size()*sizeof(gr_complex));
+		//cout<<"beforeGate size: " << beforeGate.size() << " rx_cnt: " << rx_cnt << endl;
 
 		// Willy : call gate
 		float cwAmpl = gate_impl();
@@ -619,12 +637,14 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 		{
             fprintf(stderr, "no sample passes gate\n");
 			//flag = 1;// one time
-            continue;    
+            //continue;    
         }
 		//else if(flag == 1) // one time
 		else
 		{
-			break;
+			// dump the gate data
+			int a=0;
+			//break;
 		}
 		// call correlation
 		// call decoding	
@@ -671,12 +691,22 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 		tx_round++;
 
 	}
+	if (outfile2.is_open())
+            outfile2.write((const char*)&beforeGate.front(), beforeGate.size()*sizeof(gr_complex));
+	
+	if (outf3.is_open()) // check for the sending message
+		outf3.write((const char*)&afterGate.front(), afterGate.size()*sizeof(gr_complex));
 
 	tx_md.start_of_burst    = false;
 	tx_md.end_of_burst		= true; 
 	usrp_tx->get_device()->send(zeros, SYM_LEN, tx_md, C_FLOAT32, S_ONE_PKT);
+
 	if(outfile2.is_open())
         outfile2.close();
+	if(outf2.is_open())
+        outf2.close();
+	if(outf3.is_open())
+        outf3.close();
 	
 	dump_signals();
 	end_sys();
