@@ -290,6 +290,9 @@ float gate_impl(void){
     float num_pulses=0, THRESH_FRACTION = 0.87, sample_thresh=1.1, sample_ampl=0, avg_ampl=0, cwAmpl=0;// origin: THRESH_FRACTION = 0.75
 	n_samples_to_ungate /= 5;//filter
 	n_samples_TAG_BIT /= 5;//filter
+
+	afterGate.clear();
+
     for(int i = 0; i < n_items; i++){
         // Tracking average amplitude
         sample_ampl = abs(beforeGate[i]);
@@ -690,6 +693,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 	}
 	if (outfile2.is_open())
             outfile2.write((const char*)&beforeGate.front(), beforeGate.size()*sizeof(gr_complex));
+	
 	if (outf3.is_open()) // check for the sending message
 		outf3.write((const char*)&afterGate.front(), afterGate.size()*sizeof(gr_complex));
 
