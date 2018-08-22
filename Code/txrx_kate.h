@@ -24,7 +24,7 @@ const size_t DEBUG			= 0;
 const double RECV_SEC = 0.2; //TODO: receive length may be much longer
 
 
-const size_t SYM_LEN	= 200; 
+const size_t SYM_LEN	= 250;// 250 
 const size_t MAX_PKT_LEN = 10000; // TODO: set to the query size
 //const size_t QUERY_SIZE = 4000;
 
@@ -53,6 +53,7 @@ const int Q_VALUE [16][4] =
     {1,1,0,0}, {1,1,0,1}, {1,1,1,0}, {1,1,1,1}
 }; 
 
+const int WINDOW_SIZE = 10000;
 const int dac_rate = 1e6;
 const int decim = 5;
 const int adc_rate = 2e6;
@@ -69,7 +70,7 @@ const float TAG_BIT_D   = 1.0/T_READER_FREQ * pow(10,6); // Duration in us
 const int PW_D         = 12;      // Half Tari 
 const int CW_D         = 250;    // Carrier wave
 const int P_DOWN_D     = 2000;    // power down
-const int NUM_PULSES_COMMAND = 5;
+const int NUM_PULSES_COMMAND = 4; // 5
 
 const int RN16_D        = (RN16_BITS + TAG_PREAMBLE_BITS) * TAG_BIT_D;
 const int EPC_D          = (EPC_BITS  + TAG_PREAMBLE_BITS) * TAG_BIT_D;
