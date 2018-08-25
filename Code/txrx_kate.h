@@ -52,8 +52,11 @@ const int Q_VALUE [16][4] =
     {1,0,0,0}, {1,0,0,1}, {1,0,1,0}, {1,0,1,1},
     {1,1,0,0}, {1,1,0,1}, {1,1,1,0}, {1,1,1,1}
 }; 
+const int POS_PREAMBLE[]={1,1,-1,1,-1,-1,1,-1,-1,-1,1,1};
+const int NEG_PREAMBLE[] = {-1,-1,1,-1,1,1,-1,1,1,1,-1,-1};
 
 const int WINDOW_SIZE = 10000;
+const int MOVING_WIN = 1000;
 const int dac_rate = 1e6;
 const int decim = 5;
 const int adc_rate = 2e6;
