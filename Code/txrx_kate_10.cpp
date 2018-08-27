@@ -330,7 +330,7 @@ float gate_impl(void){
             if(n_samples > n_samples_T1 && signal_state == 1 && num_pulses > NUM_PULSES_COMMAND){
                 tagIndex = i;
 				//cout << "!!!!!!!!!!!!!!!!!!" << endl;
-				cout << "tag index: " << tagIndex << endl;
+				//cout << "tag index: " << tagIndex << endl;
                 gate_status = 1;
                 afterGate.push_back(beforeGate[i]);
                 num_pulses = 0; 
@@ -359,13 +359,14 @@ int correlate(int n_samples_TAG_BIT, float cwAmpl){
     for(int i=0; i<n_samples_TAG_BIT; i++)
         bitAmpl += abs(afterGate[i]);
     fprintf(stderr, "bit = %f cw = %f\n",bitAmpl, cwAmpl);
-    for(int i=0;i<TAG_PREAMBLE_BITS*2;i++)
+    for(int i=0;i<TAG_PREAMBLE_BITS*2;i++){
         for(int j=0;j<n_samples_TAG_BIT/2;j++){
             if(bitAmpl>cwAmpl)
                 preamble.push_back(POS_PREAMBLE[i]);
             else
                 preamble.push_back(NEG_PREAMBLE[i]);
         }
+    }
     //correlation
     int size=afterGate.size();
 	size_t index = 0;
@@ -654,7 +655,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 	//size_t ix_mov = 0;
 	bool flag = 0; // gate done
 	// correlation
-	int n_samples_TAG_BIT = TAG_BIT_D * (s_rate / pow(10,6));
+	int n_samples_TAG_BIT = TAG_BIT_D * (s_rate / pow(10,6)) / 5;
 
 	// Rx cleaning
 	size_t done_cleaning;
@@ -723,21 +724,41 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 					flag = 1;
 				}			
 				window_con += MOVING_WIN;
+                //int rn16Index = correlate(n_samples_TAG_BIT,cwAmpl);
+                //fprintf(stderr, "%d\n", rn16Index);
 			}	
 		}
 
-        if (outf4.is_open()) // dump the gate data
-		    outf4.write((const char*)&beforeGate.front(), beforeGate.size()*sizeof(gr_complex));
+        /*if (outf4.is_open()) // dump the gate data
+		    outf4.write((const char*)&beforeGate.front(), beforeGate.size()*sizeof(gr_complex));*/
 
 		if (outf2.is_open()) // check for the sending message
 		{
 			outf2.write((const char*)&pkt_tx, tx_samples*sizeof(gr_complex));
 		}
 		
-		// call correlation
-		//int rn16Index = correlate(n_samples_TAG_BIT,cwAmpl);
-        //fprintf(stderr, "%d\n", rn16Index);
-		// call decoding	
+        if(flag == 1)
+        {
+            // call correlation
+            int rn16Index = correlate(n_samples_TAG_BIT,cwAmpl);
+            fprintf(stderr, "%d\n", rn16Index);
+
+            // call decoding	
+            if(rn16Index>80){
+                fprintf(stderr, "rn16 detection failure\n");
+                //stop_signal_called = true;
+                //continue;   
+            }
+            vector<int> RN16_bits = rn16Decode(rn16Index);
+            for(int i=0;i<RN16_bits.size();i++){
+                fprintf(stderr, "%d ",RN16_bits[i]);
+                if(i%4==3)
+                    fprintf(stderr,"  ");
+                if(i==RN16_bits.size()-1)
+                    fprintf(stderr,"\n");
+            }
+        }
+		
 
 		cout << "tx round: " << tx_round << ", rx count: " << rx_cnt << endl;
 		tx_round++;
