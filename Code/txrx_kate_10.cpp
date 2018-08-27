@@ -593,6 +593,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 	// load data gate
 	ofstream outf3;
     outf3.open("gate.bin", std::ofstream::binary);
+
+    ofstream outf4;
+    outf4.open("filter_all.bin", std::ofstream::binary);
 	
 	// Tx cleaning
 	tx_md.start_of_burst    = true;
@@ -722,6 +725,10 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 				window_con += MOVING_WIN;
 			}	
 		}
+
+        if (outf4.is_open()) // dump the gate data
+		    outf4.write((const char*)&beforeGate.front(), beforeGate.size()*sizeof(gr_complex));
+
 		if (outf2.is_open()) // check for the sending message
 		{
 			outf2.write((const char*)&pkt_tx, tx_samples*sizeof(gr_complex));
@@ -752,6 +759,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
         outf2.close();
 	if(outf3.is_open())
         outf3.close();
+    if(outf4.is_open())
+        outf4.close();
 	
 	dump_signals();
 	end_sys();
