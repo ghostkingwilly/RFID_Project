@@ -68,6 +68,7 @@ static bool stop_signal = false;
  ************************************************************************/
 
 //generating vector
+vector<int> RN16_bits, EPC_bits;
 std::vector<float> query_bits, query_adjust_bits, cw_ack, cw_query, preamble, delim, data_0, 
 				   data_1,rtcal, trcal, ack_bits,frame_sync, p_down, cw, query_rep, nak;
 vector< complex<float> > buff(8000), beforeGate, afterGate, raw_rx;
@@ -249,6 +250,23 @@ void gen_query(void){
         buff.push_back(cw_query[i]);
 }
 
+void gen_ACK(void){
+    buff.clear();
+    //Send FrameSync
+    buff.insert(buff.end(), frame_sync.begin(), frame_sync.end());
+    //ack
+    buff.insert(buff.end(), data_0.begin(), data_0.end());
+    buff.insert(buff.end(), data_1.begin(), data_1.end());
+    for(size_t i = 0; i < RN16_bits.size(); i++)
+    {
+        if(RN16_bits[i] == 1)
+            buff.insert(buff.end(), data_1.begin(), data_1.end()); 
+        else
+            buff.insert(buff.end(), data_0.begin(), data_0.end());        
+    }
+    buff.insert(buff.end(), cw_ack.begin(), cw_ack.end());
+}
+
 //Willy: down sampling
 void filter(void){
 	// Willy : s_cnt -> size of pkt_rx
@@ -389,9 +407,10 @@ int correlate(int n_samples_TAG_BIT, float cwAmpl){
     return index + preamble.size();
 }
 
-vector<int> rn16Decode(int rn16Index){
-    vector<int> RN16_bits, tmpBits;
+void rn16Decode(int rn16Index){
+    vector<int> tmpBits;
     int windowSize=10, now=rn16Index;
+    RN16_bits.resize(0);
     //detect +1 or 0 in data
     for (int i=0;i<RN16_BITS*2;i++){
         float sum = 0.0, aver;
@@ -415,7 +434,39 @@ vector<int> rn16Decode(int rn16Index){
         else
             RN16_bits.push_back(1);
     }
-    return RN16_bits;
+    return;
+}
+
+void epcDecode(int epcIndex){
+    vector<int> tmpBits;
+    int windowSize=10, now=epcIndex;
+    EPC_bits.resize(0);
+    //detect +1 or 0 in data
+    for (int i=0;i<EPC_BITS*2-2;i++){
+        float sum = 0.0, aver;
+        for (int j=now-windowSize; j<now+windowSize; j++){
+            sum += abs(afterGate[j]);
+        }
+        aver = sum/(windowSize*2);
+        int count = 0;
+        for (int j=now; j<now+5; j++)
+            if( abs(afterGate[j]) > aver )
+                count++;
+        if(count>2)
+            tmpBits.push_back(1);
+        else
+            tmpBits.push_back(0);
+        now += 5;
+    }
+    //decode by fm0 encoding
+    for (int i=0;i<EPC_BITS*2-2;i+=2){
+        if(tmpBits[i]!=tmpBits[i+1])
+            EPC_bits.push_back(0);
+        else
+            EPC_bits.push_back(1);
+    }
+    afterGate.resize(0);
+    return;
 }
 
 void init_usrp() {
@@ -729,6 +780,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 			}	
 		}
 
+        //while(tx_samples < QUERY_SIZE)
+
         /*if (outf4.is_open()) // dump the gate data
 		    outf4.write((const char*)&beforeGate.front(), beforeGate.size()*sizeof(gr_complex));*/
 
@@ -749,8 +802,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
                 //stop_signal_called = true;
                 //continue;   
             }
-            vector<int> RN16_bits = rn16Decode(rn16Index);
-            for(int i=0;i<RN16_bits.size();i++){
+            rn16Decode(rn16Index);
+            for(size_t i=0;i<RN16_bits.size();i++){
                 fprintf(stderr, "%d ",RN16_bits[i]);
                 if(i%4==3)
                     fprintf(stderr,"  ");
