@@ -25,11 +25,12 @@ const double RECV_SEC = 0.2; //TODO: receive length may be much longer
 
 
 const size_t SYM_LEN	= 250;// 250 
-const size_t MAX_PKT_LEN = 10000; // TODO: set to the query size
+const size_t MAX_PKT_LEN = 13000; // TODO: set to the query and ack size
 //const size_t QUERY_SIZE = 4000;
 
 //set the query
-const size_t QUERY_SIZE = 6800;
+const size_t QUERY_SIZE = 6800;//6754
+const size_t ACK_SIZE = 5400;//5379 5400
 const int QUERY_CODE[4] = {1,0,0,0};
 // QueryAdjust command
 const int QADJ_CODE[4]  = {1,0,0,1};
