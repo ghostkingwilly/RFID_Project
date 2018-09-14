@@ -24,7 +24,7 @@ const size_t DEBUG			= 0;
 const double RECV_SEC = 0.2; //TODO: receive length may be much longer
 
 
-const size_t SYM_LEN	= 100;// 250 
+const size_t SYM_LEN	= 100;// 100->50
 const size_t MAX_PKT_LEN = 13000; // TODO: set to the query and ack size
 const size_t MAX_QUE_LEN = 7000;
 const size_t MAX_ACK_LEN = 6000; 
@@ -33,7 +33,7 @@ const size_t MAX_ACK_LEN = 6000;
 
 //set the query
 const size_t QUERY_SIZE = 6810;//6754
-const size_t ACK_SIZE = 7000;//5379 5400 7000
+const size_t ACK_SIZE = 10000;//5379 5400 7000
 //const size_t ACK_SIZE = 6800;
 const int QUERY_CODE[4] = {1,0,0,0};
 // QueryAdjust command
@@ -60,8 +60,8 @@ const int Q_VALUE [16][4] =
 const int POS_PREAMBLE[]={1,1,-1,1,-1,-1,1,-1,-1,-1,1,1};
 const int NEG_PREAMBLE[] = {-1,-1,1,-1,1,1,-1,1,1,1,-1,-1};
 
-const int WINDOW_SIZE = 8000;// 10000
-const int MOVING_WIN = 100;// 1000
+const int WINDOW_SIZE = 10000;// 8000->10000
+const int MOVING_WIN = 100;// 100 -> 50
 const int dac_rate = 1e6;
 const int decim = 5;
 const int adc_rate = 2e6;
