@@ -59,6 +59,7 @@ const int Q_VALUE [16][4] =
 }; 
 const int POS_PREAMBLE[]={1,1,-1,1,-1,-1,1,-1,-1,-1,1,1};
 const int NEG_PREAMBLE[] = {-1,-1,1,-1,1,1,-1,1,1,1,-1,-1};
+int PREAMBLE[2][12]={{1,1,-1,1,-1,-1,1,-1,-1,-1,1,1}, {-1,-1,1,-1,1,1,-1,1,1,1,-1,-1}};
 
 const int WINDOW_SIZE = 10000;// 8000->10000
 const int MOVING_WIN = 100;// 100 -> 50
