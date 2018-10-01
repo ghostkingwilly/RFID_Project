@@ -32,8 +32,8 @@ const size_t MAX_ACK_LEN = 6000;
 //const size_t QUERY_SIZE = 4000;
 
 //set the query
-const size_t QUERY_SIZE = 6810;//6754
-const size_t ACK_SIZE = 10000;//5379 5400 7000
+const size_t QUERY_SIZE = 6754;//6810
+const size_t ACK_SIZE = 6000;//5379 5400 7000
 //const size_t ACK_SIZE = 6800;
 const int QUERY_CODE[4] = {1,0,0,0};
 // QueryAdjust command
@@ -61,8 +61,8 @@ const int POS_PREAMBLE[]={1,1,-1,1,-1,-1,1,-1,-1,-1,1,1};
 const int NEG_PREAMBLE[] = {-1,-1,1,-1,1,1,-1,1,1,1,-1,-1};
 int PREAMBLE[2][12]={{1,1,-1,1,-1,-1,1,-1,-1,-1,1,1}, {-1,-1,1,-1,1,1,-1,1,1,1,-1,-1}};
 
-const int WINDOW_SIZE = 10000;// 8000->10000
-const int MOVING_WIN = 100;// 100 -> 50
+const int WINDOW_SIZE = 6500;// 10000->5000
+const int MOVING_WIN = 200;// 100 -> 200
 const int dac_rate = 1e6;
 const int decim = 5;
 const int adc_rate = 2e6;
