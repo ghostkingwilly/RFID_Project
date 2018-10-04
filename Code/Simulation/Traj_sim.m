@@ -16,16 +16,18 @@ close all;
 %% parameter
 
 % time stamp
-walk_dis = 300;
+walk_dis = 30;
 % spread -> need more data
 walk_des = 0.1; % cm/s
 % set the plane size 
-PLOT_SIZE = 1000;
+PLOT_SIZE = walk_dis / walk_des;
+% slope
+slope = 1.5; 
 
 % setting the initial information
-reader = input_function(0, 0, 'Origin Reader (default [0 0]): ');
-obj_ini = input_function(10, 5, 'Origin Object (default [10 5]): ');
-hand_ini = input_function(5, -7, 'Origin Hand (default [5 -7]): ');
+reader = input_function(0, 0, 'Origin Reader: ');
+obj_ini = input_function(10, 5, 'Origin Object: ');
+hand_ini = input_function(5, -7, 'Origin Hand: ');
 
 mod = input('Test mode(default 0(linear)): ');
 if(isempty(mod))
@@ -51,9 +53,6 @@ hand_or_yi = hand_ini(2);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if(mod == 0) % linear: y = ax + b 
-    
-    slope = 2; % slope
-    
     % find b
     y_shift_obj = obj_or_yi - slope * obj_or_xi;
     y_shift_hand = hand_or_yi - slope * hand_or_xi; 
@@ -71,6 +70,13 @@ elseif(mod == 1) % random
     ran_2 = 4;
     yi_1 = rand(1,ts/walk_dis)*ran_1 + (obj_or_yi-ran_1/2);
     yi_2 = rand(1,ts/walk_dis)*ran_2 + (hand_or_yi-ran_2/2);
+elseif(mod == 2) % not take away
+    y_shift_hand = hand_or_yi - slope * hand_or_xi;
+    xi_2 = (hand_or_xi : walk_des : (hand_or_xi + walk_dis));
+    yi_2 = slope .* xi_2 + y_shift_hand;
+    
+    xi_1 = (obj_or_xi : 0 : (obj_or_xi + walk_dis));
+    yi_1 = xi_1;
     
 end
 
@@ -82,18 +88,12 @@ hand_mov = [xi_2; yi_2];
 obj_phase = phase_cal(obj_mov, reader, 1);
 hand_phase = phase_cal(hand_mov, reader, 1);
 
-%% plot the trajectory
+%% plot the trajectory and the phase
 
 ini_x = [ref_xi, obj_or_xi, hand_or_xi];
 ini_y = [ref_yi, obj_or_yi, hand_or_yi];
 
-plot_traj(ini_x, ini_y, PLOT_SIZE, obj_mov, hand_mov);
+plot_traj(ini_x, ini_y, obj_mov, hand_mov, PLOT_SIZE, mod, 0);
 
 figure();
-plot(obj_phase,'r');
-hold on;
-plot(hand_phase, 'bl');
-title('Phase change');
-
-
-
+plot_phase(obj_phase, hand_phase, PLOT_SIZE, mod, 0);
