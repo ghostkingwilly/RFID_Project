@@ -1,6 +1,6 @@
 function [output] = plot_phase(obj_p, hand_p, size, mod, fast)
     
-    subplot(2,1,1);
+    ax2 = subplot(2,1,1);
     axis([0 size+50 -4 4]);
     
     plot(obj_p,'r');
@@ -9,8 +9,10 @@ function [output] = plot_phase(obj_p, hand_p, size, mod, fast)
     title('Phase change Static');
     legend({'Object','Hand'},'FontSize', 6,'Location','southeast')
     legend('boxoff');
+    xlabel(ax2,'Movement (cm.)', 'Color', [0 0.5 0]);
+    ylabel(ax2,'Phase (rad.)', 'Color', [0 0.5 0]);
     
-    subplot(2,1,2);
+    ax1 = subplot(2,1,2);
     
     h = animatedline();
     h1 = animatedline();
@@ -19,6 +21,8 @@ function [output] = plot_phase(obj_p, hand_p, size, mod, fast)
     title('Phase change Dynamic');
     legend({'Object','Hand'},'FontSize', 6,'Location','southeast')
     legend('boxoff');
+    xlabel(ax1,'Movement (cm.)', 'Color', [0 0.5 0]);
+    ylabel(ax1,'Phase (rad.)', 'Color', [0 0.5 0]);
     
     for t = 1:size+1
         if(mod == 0)
