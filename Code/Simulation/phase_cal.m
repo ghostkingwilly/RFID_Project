@@ -3,11 +3,11 @@ function [phase_shift] = phase_cal(obj, reader, flag)
     % meter to centermeter
     LIGHT_SPEED = 3 * 1e10; 
     
-    FREQ = 900 * 10^6;
+    FREQ = 900 * 1e6;
     
     phase_precal = -2 * 1i * pi * FREQ;
     
-    % flag 0 for origin phase
+    % flag 0 for origin phase(do not move)
     if(flag == 0)
         % Euclidean norm
         Read2obj = norm(abs(obj-reader));
