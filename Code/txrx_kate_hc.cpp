@@ -13,6 +13,8 @@
 #include <algorithm>
 
 #include <csignal>
+#include <string>
+#include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include "txrx_kate.h"
@@ -27,7 +29,8 @@ double rate;
 double du, du1;
 time_t start, fin;
 int s_rate = adc_rate;
-enum GEN2_LOGIC_STATUS  {SEND_QUERY, SEND_ACK, SEND_QUERY_REP, IDLE, SEND_CW, FAIL, DECODE_RN16};
+int file_idx = 0;
+enum GEN2_LOGIC_STATUS  {SEND_QUERY, SEND_ACK, SEND_QUERY_REP, IDLE, SEND_CW, FAIL, DECODE_RN16, CLOSE};
 GEN2_LOGIC_STATUS gen2_logic_status = SEND_QUERY;
 
 //USRP cmd
@@ -50,6 +53,7 @@ gr_complex pkt_tx[MAX_PKT_LEN];
 //gr_complex SACK_tx[MAX_ACK_LEN];
 gr_complex *pkt_rx;
 gr_complex *pkt_rxtmp;
+gr_complex *pkt_rxsack;
 gr_complex *decoding_rx;
 gr_complex zeros[SYM_LEN];
 gr_complex ones[SYM_LEN];
@@ -81,7 +85,7 @@ static bool stop_signal = false;
 vector<int> RN16_bits, EPC_bits;
 std::vector<float> query_bits, query_adjust_bits, cw_ack, cucw_ack,cw_query, preamble, delim, data_0, 
 				   data_1,rtcal, trcal, ack_bits,frame_sync, p_down, cw, query_rep, nak;
-vector< complex<float> > Query(MAX_QUE_LEN), SACK(MAX_ACK_LEN), beforeGate, afterGate, raw_rx;
+vector< complex<float> > Query, SACK, beforeGate, afterGate, raw_rx;
 
 void crc_append(std::vector<float> & q){
     int crc[] = {1,0,0,1,0};
@@ -261,8 +265,8 @@ void gen_query(void){
 	//for(size_t k = 0; k < 2; k++) // 5
     	for(size_t i = 0; i < cw_query.size(); i++)
        		Query.push_back(cw_query[i]);
-        for(size_t i=0; i<100; ++i)
-            Query.push_back(1);
+        //for(size_t i=0; i<100; ++i)
+            //Query.push_back(1);
 }
 
 void gen_ACK(void){
@@ -272,15 +276,6 @@ void gen_ACK(void){
     //ack
     SACK.insert(SACK.end(), data_0.begin(), data_0.end());
     SACK.insert(SACK.end(), data_1.begin(), data_1.end());
-    /*for(size_t i = 0; i < RN16_bits.size(); i++)
-    {
-        if(RN16_bits[i] == 1)
-            SACK.insert(SACK.end(), data_1.begin(), data_1.end()); 
-        else
-            SACK.insert(SACK.end(), data_0.begin(), data_0.end());        
-    }
-    //for(size_t j=0; j<5; ++j)
-        SACK.insert(SACK.end(), cw_ack.begin(), cw_ack.end());*/
 }
 
 //Willy: down sampling
@@ -465,7 +460,7 @@ int correlate(int n_samples_TAG_BIT, float cwAmpl)
         float tmp=0.0, aver=sum/60;
         for (int j=0;j<60;j++)
         {
-            tmp += float(PREAMBLE[type][j])*(abs(afterGate[j])-aver);
+            tmp += float(PREAMBLE[type][j/5])*(abs(afterGate[j])-aver);
         }
         if(tmp > Max)
         {
@@ -545,6 +540,8 @@ void init_usrp() {
 	usrp_rx = uhd::usrp::multi_usrp::make(usrp_rx_ip);
 	usrp_tx->set_rx_rate(rate * 2);
 	usrp_rx->set_rx_rate(rate * 2);
+    //usrp_tx->set_rx_rate(rate);
+	//usrp_rx->set_rx_rate(rate);
 	usrp_tx->set_tx_rate(rate);
 	usrp_rx->set_tx_rate(rate);
 
@@ -580,7 +577,6 @@ void init_stream() {
 
 void init_sys() {
 	// Tx buffer initialize	
-	//memset(Query, 0, sizeof(Query));//SACK
     Query.clear(); SACK.clear();
 	memset(zeros, 0, sizeof(zeros));
 	memset(ones, 0, sizeof(ones));
@@ -588,15 +584,6 @@ void init_sys() {
 	{
 		ones[i].real(1);
 	}
-
-
-	// put generated signal in pkt_tx
-	//in_file = fopen(in_name.c_str(), "rb");
-	//read freq_data file to freq_data
-	//fread(pkt_tx, sizeof(gr_complex), MAX_PKT_LEN, in_file);
-	//fclose(in_file);
-	//for (size_t i=0; i<10; i++)
-	//	cout << "(" << pkt_tx[i].real() << ", " << pkt_tx[i].imag() << ")" << endl;
 
 	// Rx buffer initialize
 	printf("New receiving signal buffer\n");
@@ -622,7 +609,6 @@ void init_sys() {
 
 	// use external clock for synchronziation
 	sync_clock();
-
 	init_stream();
 }
 
@@ -659,9 +645,6 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 	string tx_ant, rx_ant, tx_subdev, rx_subdev, ref, otw;
 	double tx_bw, rx_bw, lo_off;
 	// USRP setting
-	// rate = 1e6;
-	// freq = 910e6;
-
 	po::options_description desc("Allowed options");
 	desc.add_options()
 		("help", "help message")
@@ -700,14 +683,15 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 	std::cout << "Press Ctrl + C to stop streaming..." << std::endl;
 
 	// Willy : initial the whole message
-	// Willy : generate the query sequence
 	readerInit();
+    // Willy : generate the query sequence
 	gen_query();
     gen_ACK();
-    //cout << "cw ack: " << cw_ack.size() << endl;
-    for(size_t j=0; j<5; ++j)
-        cucw_ack.insert(cucw_ack.end(), cw_ack.begin(), cw_ack.end());
-    
+	pkt_rxsack = new gr_complex[s_cnt];
+    if(pkt_rxsack != NULL) {
+		memset(pkt_rxsack, 0, sizeof(gr_complex)*s_cnt);
+	}
+    size_t rx_total = 0;
 	// load data after filter
 	ofstream outfile2;
     outfile2.open("filter_samples_n.bin", std::ofstream::binary);
@@ -722,7 +706,25 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 
     ofstream outf4;
     outf4.open("filter_all.bin", std::ofstream::binary);
-	
+
+    // open the file to record 
+    string str = "./Out_file/";
+    char temp[1000];
+    FILE* out5[20];
+    for(int k=0; k<20; ++k)
+    {
+        sprintf(temp, "%d", k+1);
+        str += temp;
+        str += ".bin";
+        sprintf(temp, "%s", str.c_str());
+        out5[k] = fopen(temp, "wb+");
+        str = "./Out_file/";
+        memset(temp, 0, 1000);
+    }
+    //fwrite(pkt_rx, sizeof(gr_complex), s_cnt, out_file);
+
+    //cout << "RN16 D: " << RN16_D <<endl; // 575
+
 	// Tx cleaning
 	tx_md.start_of_burst    = true;
 	tx_md.end_of_burst      = false;
@@ -776,12 +778,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 
 	size_t tx_round = 0;
 	size_t rx_cnt = 0;
-	//size_t ACK_UPPER = 0;
 
 	float cwAmpl = 0.0;
-	//size_t ix_mov = 0;
 	bool flag = 0; // gate done
-    //bool flag2 = 0;
+    int idle_in = 0;
+
 	// correlation
 	int n_samples_TAG_BIT = TAG_BIT_D * (s_rate / pow(10,6)) / 5;
 	
@@ -803,37 +804,47 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 	tx_md.has_time_spec     = true;
 	tx_md.end_of_burst      = false;
 
-	while(!stop_signal && tx_round < 1) { //&& tx_round < 3
+	while(!stop_signal && tx_round < 2) { //&& tx_round < 3
 		// Willy : check the RN16 correct, to resend query
 		size_t tx_samples  = 0; 
 		size_t read_cnt = 0;
+        size_t tx_cnt = 0;
 		//size_t test = 0;
 		int rn16Index;
-        tx_md.start_of_burst    = false; /**9/25**/
-        //if(tx_round >= 1){gen2_logic_status = FAIL;}
-		while(gen2_logic_status != IDLE)
+        
+        gen2_logic_status = SEND_QUERY;
+        //cout << "snt: " << s_cnt << endl;
+        //if(tx_round >= 1){gen2_logic_status = SEND_QUERY;}}
+		while(gen2_logic_status != CLOSE)
 		{
+            //cout << "fhjkwehkjw\n"; 
 			switch(gen2_logic_status)
 			{
 				case SEND_QUERY:
-					while(tx_samples < QUERY_SIZE)
+					while(tx_samples < QUERY_SIZE) // Q size: 6754
 					{
 						// Willy: send with size 200(lower)
-						tx_samples += usrp_tx->get_device()->send(&Query.front()+tx_samples, SYM_LEN, tx_md, C_FLOAT32, S_ONE_PKT);
-
+                        //cout << "huiregruiengeknk" << endl;
+						tx_cnt = SYM_LEN;
+                        if (tx_samples + SYM_LEN > QUERY_SIZE) // avoid the empty samples
+                            tx_cnt = QUERY_SIZE - tx_samples;
+                        tx_samples += usrp_tx->get_device()->send(&Query.front()+tx_samples, tx_cnt, tx_md, C_FLOAT32, S_ONE_PKT);
 						tx_md.has_time_spec = false;
 
 						if (rx_cnt < s_cnt) 
 						{
 							read_cnt = SYM_LEN * 2;
+                            //read_cnt = SYM_LEN; 
 							// at last recv(), modify read_cnt to receive the remaining samples
 							if (s_cnt - rx_cnt < read_cnt) 
 								read_cnt = s_cnt - rx_cnt;
 							// receiving read_cnt samples each time
 							read_cnt = usrp_rx->get_device()->recv(pkt_rxtmp, read_cnt, rx_md, C_FLOAT32, R_ONE_PKT);
 							// storing all received data in pkt_rx for debug
-							memcpy(pkt_rx+rx_cnt, pkt_rxtmp, read_cnt*sizeof(gr_complex));
+                            //memcpy(pkt_rxsack+rx_cnt, pkt_rxtmp, read_cnt*sizeof(gr_complex));
+                            memcpy(pkt_rx+rx_cnt, pkt_rxtmp, read_cnt*sizeof(gr_complex));
 							rx_cnt += read_cnt;
+                            rx_total += read_cnt;
 
 							// origin: rx_cnt += usrp_rx->get_device()->recv(pkt_rx+rx_cnt, read_cnt, rx_md, C_FLOAT32, R_ONE_PKT);
 							// pop read_cnt if full
@@ -849,6 +860,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 						{
 							//cout << "Before Gate size: " << beforeGate.size() << endl;
                             //start = clock();
+                            //cout << "rx cnt: " << rx_cnt << endl;
 							filter();
 							cwAmpl = gate_impl();
                             //fin = clock();
@@ -860,73 +872,60 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 								flag = 1;
 								gen2_logic_status = DECODE_RN16;
 								//gen2_logic_status = IDLE; // DEBUG
-                                break;
+                                if(tx_samples > 6700)
+                                    break;
 							}	
 							window_con += MOVING_WIN;
 						}
+                        /*
+                        fwrite(pkt_rx, sizeof(gr_complex), rx_total, out5[file_idx]);
+                        if(rx_total + read_cnt > READ_LIM)
+                        {
+                            file_idx++;
+                            rx_total = 0;
+                        }*/
 					}
-
-                    //usrp_rx->get_device()->recv(pkt_rxtmp, SYM_LEN*0.5, rx_md, C_FLOAT32, R_ONE_PKT);
+                    
 					if(flag == 0){gen2_logic_status = FAIL;}
+                   // }cout << "rx cnt: " << tx_samples << endl;gen2_logic_status = SEND_ACK;
 					break;
 
 				case DECODE_RN16:
-					//cout << "fnwakjgbek" << endl;
-					//tx_md.has_time_spec = true;
-					// call correlation
+                    /*for(int i=0; i<3; ++i)
+                    {
+                        usrp_rx->get_device()->recv(pkt_rxtmp, SYM_LEN*2, rx_md, C_FLOAT32, R_ONE_PKT);
+                        memcpy(pkt_rx+rx_cnt, pkt_rxtmp, SYM_LEN*2*sizeof(gr_complex));
+					    rx_cnt += SYM_LEN*2;
+                    }*/
                     //usrp_tx->get_device()->send(ones, SYM_LEN, tx_md, C_FLOAT32, S_ONE_PKT);
                     //for(size_t i=0; i<8; ++i)
                         //usrp_tx->get_device()->send(zeros, SYM_LEN, tx_md, C_FLOAT32, S_ONE_PKT);
                     //start = clock();
 					rn16Index = correlate(n_samples_TAG_BIT,cwAmpl);
-                    //usrp_rx->get_device()->recv(pkt_rxtmp, SYM_LEN, rx_md, C_FLOAT32, R_ONE_PKT);
-                    //fin = clock();
-                    //printf("%f\n", (double)(fin - start)/CLOCKS_PER_SEC*2*rate);
-					//Willy fprintf(stderr, "%d\n", rn16Index);
 
 					// call decoding	
 					// Wily
-                    if(rn16Index>80){
+                    if(rn16Index>10 || rn16Index == 0){
 						fprintf(stderr, "rn16 detection failure\n");
                         gen2_logic_status = FAIL;
-                        break;
-						//stop_signal_called = true;
-						//continue;   
+                        break;   
 					}
-                    //start = clock();
 					rn16Decode(rn16Index + 60);
-                    //usrp_rx->get_device()->recv(pkt_rxtmp, SYM_LEN, rx_md, C_FLOAT32, R_ONE_PKT);
-                    //fin = clock();
-                    //printf("%f\n", (double)(fin - start)/CLOCKS_PER_SEC*2*rate);
-					for(size_t i=0;i<RN16_bits.size();i++){
-						fprintf(stderr, "%d ",RN16_bits[i]);
-						if(i%4==3)
-							fprintf(stderr,"  ");
-						if(i==RN16_bits.size()-1)
-							fprintf(stderr,"\n");
-					}
-					//cout << "tx_samples: " << tx_samples << endl;
-					//ACK_UPPER = tx_samples + ACK_SIZE;
+                    
 					// remove the last bit of RN16
 					RN16_bits.erase(RN16_bits.begin()+RN16_bits.size()-1);
                     //usrp_rx->get_device()->recv(pkt_rxtmp, SYM_LEN*2, rx_md, C_FLOAT32, R_ONE_PKT);
-					if(RN16_bits.size() == 16){/*gen2_logic_status = IDLE;}*/gen2_logic_status = SEND_ACK;}
+					if(RN16_bits.size() == 16)
+                    {
+                        /*gen2_logic_status = IDLE;}*/
+                        gen2_logic_status = SEND_ACK;
+                    }
 					else{gen2_logic_status = FAIL;}
+                    
 					break;
 
 				case SEND_ACK:
-					tx_samples = 0;
-                    /**Maintain the T2**/
-                    /*for(size_t i=0; i<6; ++i){ //
-                        //usrp_tx->get_device()->send(zeros, SYM_LEN, tx_md, C_FLOAT32, S_ONE_PKT);
-                        usrp_rx->get_device()->recv(pkt_rxtmp, SYM_LEN*2, rx_md, C_FLOAT32, R_ONE_PKT);
-                        memcpy(pkt_rx+rx_cnt, pkt_rxtmp, SYM_LEN*2*sizeof(gr_complex));
-						rx_cnt += SYM_LEN*2;
-                    } */
-                    //usrp_rx->get_device()->recv(pkt_rxtmp, SYM_LEN*0.5, rx_md, C_FLOAT32, R_ONE_PKT);  //6.4x loop-> 2 x T1
-                    //memcpy(pkt_rx+rx_cnt, pkt_rxtmp, SYM_LEN*10*sizeof(gr_complex));
-					//rx_cnt += SYM_LEN*10;
-					//gen_ACK();
+					tx_samples = 0; // avoid covering the other data
 
                     /**Complete the ACK msg**/
                     for(size_t i = 0; i < RN16_bits.size(); i++)
@@ -936,58 +935,87 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
                         else
                             SACK.insert(SACK.end(), data_0.begin(), data_0.end());        
                     }
-                    SACK.insert(SACK.end(), cucw_ack.begin(), cucw_ack.end()); // 4575 samples
+                    //for(int i=0; i<2; ++i)
+                    SACK.insert(SACK.end(), cw_ack.begin(), cw_ack.end()); // 4575 samples
 
                     //cout << "SACK size: " << SACK.size() << endl;
-					//cout << "Buffer size: " << SACK.size() << endl;
 					while(tx_samples < ACK_SIZE) 
-					//while(tx_samples < QUERY_SIZE) 
-					{ 
-						//cout << "send query" << endl;
-						//tx_samples += usrp_tx->get_device()->send(&Query.front()+tx_samples, SYM_LEN, tx_md, C_FLOAT32, S_ONE_PKT);
-                        tx_samples += usrp_tx->get_device()->send(&SACK.front()+tx_samples, SYM_LEN, tx_md, C_FLOAT32, S_ONE_PKT);
+					{
+                        tx_cnt = SYM_LEN;
+                        if(tx_samples+SYM_LEN > QUERY_SIZE)
+                            tx_cnt = ACK_SIZE - tx_samples; 
+						tx_samples += usrp_tx->get_device()->send(&SACK.front()+tx_samples, tx_cnt, tx_md, C_FLOAT32, S_ONE_PKT);
 						//usrp_rx->get_device()->recv(pkt_rxtmp, SYM_LEN*2, rx_md, C_FLOAT32, R_ONE_PKT); //new
 						if (rx_cnt < s_cnt) 
 						{
 							read_cnt = SYM_LEN*2;
+                            //read_cnt = SYM_LEN;
 							if (s_cnt - rx_cnt < read_cnt) 
 								read_cnt = s_cnt - rx_cnt;
 							// receiving read_cnt samples each time
 							read_cnt = usrp_rx->get_device()->recv(pkt_rxtmp, read_cnt, rx_md, C_FLOAT32, R_ONE_PKT);
 							// storing all received data in pkt_rx for debug
 							memcpy(pkt_rx+rx_cnt, pkt_rxtmp, read_cnt*sizeof(gr_complex));
+                            //memcpy(pkt_rx+rx_total, pkt_rxtmp, read_cnt*sizeof(gr_complex));
 							rx_cnt += read_cnt;
+                            rx_total += read_cnt;
 						}
 					}
-                    /*read_cnt = SYM_LEN*2;
-                    for(size_t i=0; i<10; ++i)
-                    {
-                        read_cnt = usrp_rx->get_device()->recv(pkt_rxtmp, read_cnt, rx_md, C_FLOAT32, R_ONE_PKT);
-                        memcpy(pkt_rx+rx_cnt, pkt_rxtmp, read_cnt*sizeof(gr_complex));
-					    rx_cnt += read_cnt;
-                    }*/
-                    /*gen2_logic_status = SEND_ACK;
-					test++;
-					if (test > 4)*/
 						gen2_logic_status = IDLE;
 					break;
 
 				case FAIL:
 					tx_samples = 0;
-                    rx_cnt = 0;
                     flag = 0;
 					window_con = MOVING_WIN;
-					afterGate.clear(); beforeGate.clear(); raw_rx.clear();
-					memset(pkt_rx, 0, sizeof(gr_complex)*s_cnt);
-					memset(pkt_rxtmp, 0, sizeof(gr_complex)*SYM_LEN);
-					SACK.clear();
-
+					afterGate.clear(); beforeGate.clear(); raw_rx.clear();SACK.clear();
+                    rx_cnt = 0;
+                    memset(pkt_rx, 0, sizeof(gr_complex)*s_cnt);
+					memset(pkt_rxtmp, 0, sizeof(gr_complex)*SYM_LEN*2);
+                    //memset(pkt_rxsack, 0, sizeof(gr_complex)*s_cnt);
+					gen_ACK();
 					gen2_logic_status = SEND_QUERY;
+
+                    if(idle_in)
+                    {
+                        fwrite(pkt_rx, sizeof(gr_complex), rx_total, out5[file_idx]);
+                        if(rx_total + read_cnt > READ_LIM)
+                        {
+                            file_idx++;
+                            rx_total = 0;
+                        }
+                    }
+
 					break;
 
 				case IDLE:
-					break;
+                    tx_samples = 0;
+                    //rx_cnt = 0;
+                    //cout << "Innnnnnnn\n";
+                    if(idle_in == 0)
+                    {
+                        idle_in = 1;
+                        
+                        fwrite(pkt_rx, sizeof(gr_complex), rx_total, out5[file_idx]);
+                        if(rx_total + read_cnt > READ_LIM)
+                        {
+                            file_idx++;
+                            rx_total = 0;
+                        }
+                    }
 
+                    flag = 0;
+					window_con = MOVING_WIN;
+					afterGate.clear(); beforeGate.clear(); raw_rx.clear();SACK.clear();
+                    //cout << "Clear done\n";
+					//memset(pkt_rx, 0, sizeof(gr_complex)*s_cnt);
+					memset(pkt_rxtmp, 0, sizeof(gr_complex)*SYM_LEN*2);
+                    //memset(pkt_rxsack, 0, sizeof(gr_complex)*s_cnt);
+					gen_ACK();
+                    //cout << "gen ACK\n";
+                    gen2_logic_status = CLOSE;
+                    //cout << "rxxxxx: " << rx_cnt << endl;
+					break;
 				default:
 					if(flag == 1)
 						gen2_logic_status = DECODE_RN16;
@@ -1000,6 +1028,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 		tx_round++;
 
 	}
+    //cout << "123456456789789" << endl;
 	if (outfile2.is_open())
 		outfile2.write((const char*)&beforeGate.front(), beforeGate.size()*sizeof(gr_complex));
 
@@ -1019,6 +1048,18 @@ int UHD_SAFE_MAIN(int argc, char *argv[]){
 		outf3.close();
 	if(outf4.is_open())
 		outf4.close();
+
+    str = "./Out_file/";
+    for(int k=0; k<20; ++k)
+    {
+        sprintf(temp, "%d", k+1);
+        str += temp;
+        str += ".bin";
+        sprintf(temp, "%s", str.c_str());
+        fclose(out5[k]);
+        str = "./Out_file/";
+        memset(temp, 0, 1000);
+    }
 
 	dump_signals();
 	end_sys();
