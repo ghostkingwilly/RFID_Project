@@ -25,9 +25,9 @@ addpath('./Mat_Funcs/');
 %% Parameter
 
 % time stamp
-WALK_DIS = 30;
+WALK_DIS = 55;
 % spread -> need more data
-WALK_PACE = 0.1; % cm/s
+WALK_PACE = 0.02; % cm/s
 % set the plane size 
 PLOT_SIZE = WALK_DIS / WALK_PACE;
 
@@ -111,7 +111,7 @@ else
 end
 
 % the first user: debug[1.5 -0.5]
-usr_ini(1,:) = [1 1.5 -0.5];
+usr_ini(1,:) = [1 1.5 -3.5];
 
 % transform the coordinate
 ref_xi = reader(1);
@@ -177,20 +177,30 @@ gen_plot_traj(ini_x, ini_y, obj_mov_x, obj_mov_y, hand_mov_x, hand_mov_y, PLOT_S
 figure();
 gen_plot_phase(obj_phase, hand_phase, PLOT_SIZE);
 
-return;
 %% Mask
+PLOT_SIZE;
+QUERY_TIME = round(QUERY/(2*1e6)*10000);
+TOT_SAM_TIME =  round(TOT_SAM/(2*1e6)*10000);
+RN16_TIME =  round(RN16/(2*1e6)*10000);
 
-QUERY_TIME = QUERY/(2*1e6);
-TOT_SAM_TIME =  TOT_SAM/(2*1e6);
-RN16_TIME =  RN16/(2*1e6);
-
-mask_num = round(length(hand_phase) / TOT_SAM_TIME);
+% need to be integer
+mask_num = ceil(round(length(hand_phase) / TOT_SAM_TIME));
 
 % count the number of tag
 tag_number = obj_num + user_num;
 % random which tag 
-mask_tmp = randi([0,tag_number],1,mask_num).';
+mask_tmp = randi([0,tag_number],1,mask_num-1).';
+% last most samples
+mask_tmp_last = randi([0, tag_number],1,1);
+
+% repeat the mask across each Total sample
+mask = repmat(mask_tmp, 1, TOT_SAM_TIME).';
+mask_tmp_last = repmat(mask_tmp_last, 1, length(hand_phase) - numel(mask));
+
+% reshape for the mask
+mask_done = [reshape(mask, 1, numel(mask)), mask_tmp_last];
+
+% TODO: figure out how to mask 
 
 return
-% create the mask 
 
