@@ -3,6 +3,11 @@ function [out1, out2] = gen_obj_trace(obj_num, xi, yi, pace, dis, dir, slope, fl
     PLOT_SIZE = dis / pace;
     %out1(1,:) = xi(1);
     %out2(1,:) = yi(1);
+    
+    if(mod == 3)
+        mod = 1;
+    end
+    
     for i = 1:obj_num
         if(mod == 0)
             if(flag == 1) % vertical line
@@ -20,6 +25,16 @@ function [out1, out2] = gen_obj_trace(obj_num, xi, yi, pace, dis, dir, slope, fl
         elseif(mod == 1) % don't move
             out1(i,:) = (xi(i) : 0 : (xi(i) + dis));
             out2 = out1;
+            
+        elseif(mod == 2) % move along different direction
+            % random speed
+            ran_a = -slope; ran_b = slope;
+            slp = (ran_b-ran_a).*rand(1,1)+ran_a;
+            
+            out1_tmp = (xi(i)+pace : pace : (xi(i) + dis));
+            out1(i,:) = out1_tmp;
+            y_shift_obj = yi(i) - slp .* xi(i);
+            out2(i,:) = (slp + inter) .* out1_tmp + y_shift_obj + noise;
         end
     end
 end
