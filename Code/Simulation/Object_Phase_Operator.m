@@ -15,17 +15,17 @@
 % Editor: Willy ChengFa Huang
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-clear;
+%clear;
 %clc;
-close all;
+%close all;
 
-%function[output] = Object_Phase_Operator(mod, RAN_TIM, slope, flag, reader, obj_num, user_num, direction, debug)
+function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, flag, reader, obj_num, user_num, direction, debug, pplot)
 
     % add the path to include the functions
     addpath('./Mat_Funcs/');
 
     %% Parameter
-    debug = 1; 
+    %debug = 1; 
     % time stamp
     %WALK_DIS = 55;
     WALK_DIS = 2000;
@@ -230,52 +230,23 @@ close all;
     obj_phase_size = length(obj_phase);
     hand_phase_size = length(hand_phase);
 
-    %RN16_TIME =  2*round(RN16/(2*1e6)*10000);
+    % received samples
     RN16_TIME =  1250;
-    %RN16_TIME =  20;
-    % total samples
+    % total received samples
     GAP = 16000;
 
     % count the number of tag
     tag_number = obj_num + user_num;
 
-    % cut the whole phase to chuncks
-    chunck_number = floor(obj_phase_size / RN16_TIME);
-
     for i=1:RAN_TIM
-        % random it without duplicate
-        %chunck_candidate_tmp = randperm(chunck_number);
-        % pick up the first plenty of the numbers of tags
-        %chunck_candidate = chunck_candidate_tmp(1:tag_number);
-        
+        % decide the tag order
         ran_user = randperm(tag_number);
-        %chunck_candidate_1 = 1:GAP:obj_phase_size;
-        %chunck_candidate_2 = GAP:GAP:obj_phase_size;
         
-        %obj_final(i,:) = gen_random_samples(obj_phase, RN16_TIME, obj_phase_size, ran_user(1), GAP);
-        %hand_final(i,:) = gen_random_samples(hand_phase, RN16_TIME, hand_phase_size, ran_user(2), GAP);
+        obj_final(i,:) = gen_random_samples(obj_phase, RN16_TIME, obj_phase_size, ran_user(1), GAP, pplot);
+        hand_final(i,:) = gen_random_samples(hand_phase, RN16_TIME, hand_phase_size, ran_user(2), GAP, pplot);
     end
-start = 2-1;
-filter_data(1,:) = 2*pi.*ones(1,start * GAP);
-remain = GAP - RN16_TIME;
-k = floor(length(obj_phase) / GAP);
 
-s = start * GAP;
-%return;
-        for i=2:k
-            filter_data(i,:) = [obj_phase(s:s+1250-1), 2*pi.*ones(1,remain)];
-            s = s+GAP;
-        end
-        
-        %return;
-        filter_data_d = reshape(filter_data.', 1, k*GAP);
-        remain_sample = obj_phase_size - length(filter_data_d);close 
-        filter_data_final = [filter_data_d, 2*pi.*ones(1,remain_sample)];
-        %return;
-        figure();
-        plot(filter_data_d);
-return
     QUERY_TIME = round(QUERY/(2*1e6)*10000);
     TOT_SAM_TIME = round(TOT_SAM/(2*1e6)*10000);
 
-%end
+end
