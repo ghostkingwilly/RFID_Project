@@ -18,7 +18,8 @@ function [out1, out2] = gen_obj_trace(obj_num, xi, yi, pace, dis, dir, slope, fl
             else
                 y_shift_obj = yi(i) - slope .* xi(i);
                 out1_tmp = (xi(i)+pace : pace : (xi(i) + dis));
-                out2(i,:) = (slope + inter) .* out1_tmp + y_shift_obj + noise;
+                %out2(i,:) = (slope + inter) .* out1_tmp + y_shift_obj + noise;
+                out2(i,:) = slope .* out1_tmp + y_shift_obj;
                 out1(i,:) = out1_tmp;
             end
             
@@ -34,7 +35,8 @@ function [out1, out2] = gen_obj_trace(obj_num, xi, yi, pace, dis, dir, slope, fl
             out1_tmp = (xi(i)+pace : pace : (xi(i) + dis));
             out1(i,:) = out1_tmp;
             y_shift_obj = yi(i) - slp .* xi(i);
-            out2(i,:) = (slp + inter) .* out1_tmp + y_shift_obj + noise;
+            %out2(i,:) = (slp + inter) .* out1_tmp + y_shift_obj + noise;
+            out2(i,:) = slp .* out1_tmp + y_shift_obj;
         end
     end
 end
