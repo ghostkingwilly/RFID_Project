@@ -52,8 +52,10 @@ name = name(1:length(name)-1);
 name = str2num(name).';
 
 %return;
-result = result.';
+result_tmp = result.';
 
+%result_d = [result_tmp result(:,end)];
+return
 csvwrite('out.csv', name);
 dlmwrite('out.csv', result, '-append');
 %return;

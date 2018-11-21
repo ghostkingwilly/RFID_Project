@@ -242,8 +242,8 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
         % decide the tag order
         ran_user = randperm(tag_number);
         
-        obj_final(i,:) = gen_random_samples(obj_phase, RN16_TIME, obj_phase_size, ran_user(1), GAP, pplot);
-        hand_final(i,:) = gen_random_samples(hand_phase, RN16_TIME, hand_phase_size, ran_user(2), GAP, pplot);
+        obj_final(i,:) = [gen_random_samples(obj_phase, RN16_TIME, obj_phase_size, ran_user(1), GAP, pplot), mod];
+        hand_final(i,:) = [gen_random_samples(hand_phase, RN16_TIME, hand_phase_size, ran_user(2), GAP, pplot), mod];
     end
 
     QUERY_TIME = round(QUERY/(2*1e6)*10000);
