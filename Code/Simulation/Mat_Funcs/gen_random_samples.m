@@ -26,6 +26,7 @@ function [filter_data_final] = gen_random_samples(phase, RN16_TIME, phase_size, 
     % merge the rows of the filter data
     filter_data_d = reshape(filter_data.', 1, k*GAP);
     
+    % remain samples merge
     if(mod(length(phase), GAP) ~= 0)
         remain_sample = phase_size - length(filter_data_d);
         filter_data_final = [filter_data_d, 2*pi.*ones(1,remain_sample)];
