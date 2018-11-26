@@ -219,12 +219,12 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
     end
 
     %% Trajectory and Phase Plot
-
+%{
     gen_plot_traj(ini_x, ini_y, obj_mov_x, obj_mov_y, hand_mov_x, hand_mov_y, PLOT_SIZE, mod);
 
     figure();
     gen_plot_phase(obj_phase, hand_phase, PLOT_SIZE);
-
+%}
     %% Mask
     % phase size
     obj_phase_size = length(obj_phase);

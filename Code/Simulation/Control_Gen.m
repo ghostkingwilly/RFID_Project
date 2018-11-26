@@ -2,15 +2,15 @@ clear;
 clc;
 close all;
 
-Sim_Time = 1;
-debug = 1;
+Sim_Time = 1000;
+debug = 0;
 % number of random rn16 samples
 RAN_TIM = 1;
 % slope
 slope = 1;
 % flag for verticle line
 flag = 0; % non verticle
-pplot = 1;
+pplot = 0;
 
 reader = [1,1];
 
@@ -31,17 +31,7 @@ for i=1:Sim_Time
 end
 
 name = [];
-
-lab = [];
-
-for i=1:Sim_Time
-    if(mode(i) == 0)
-        lab = [lab, 1];
-    else
-        lab = [lab, 0];
-    end
-end
-
+%{
 for i=1:Sim_Time
     for j=1:RAN_TIM
         for k=1:phase_num
@@ -56,15 +46,38 @@ end
 
 %name = [num2str(length(name));name];
 name_tmp = name.';
+%}
+cnt = Sim_Time * RAN_TIM * phase_num;
+
+for i=1:cnt
+    name = [name;i];
+end
+
+lab = [];
+
+for i=1:Sim_Time
+    if(mode(i) == 0)
+        lab = [lab, 1];
+    else
+        lab = [lab, 0];
+    end
+end
 
 %result = [1:length(result);result];
-result_tmp = result.';
 
 %return
-csvwrite('../RNN_Model/out.csv', name_tmp);
-%csvwrite('../RNN_Model/out.csv', result_tmp);
-dlmwrite('../RNN_Model/out.csv', result_tmp, '-append');
+csvwrite('/home/nss-willy/Downloads/out.csv', name.');
+dlmwrite('/home/nss-willy/Downloads/out.csv', result.', '-append');
 
-csvwrite('../RNN_Model/label.csv', 'm');
-dlmwrite('../RNN_Model/label.csv', lab.', '-append');
+%csvwrite('../RNN_Model/out.csv', name_tmp);
+%csvwrite('../RNN_Model/out.csv', result_tmp);
+%dlmwrite('../RNN_Model/out.csv', result_tmp, '-append');
+
+csvwrite('/home/nss-willy/Downloads/label.csv', 'm');
+dlmwrite('/home/nss-willy/Downloads/label.csv', lab.', '-append');
+
+%csvwrite('../RNN_Model/label.csv', 'm');
+%dlmwrite('../RNN_Model/label.csv', lab.', '-append');
+
+
 
