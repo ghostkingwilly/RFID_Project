@@ -37,7 +37,7 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
     
     if(debug)
         % number of random rn16 samples
-        RAN_TIM = 6;
+        RAN_TIM = 1;
         % slope
         slope = 1;
         % flag for verticle line
@@ -233,7 +233,7 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
     % received samples
     RN16_TIME =  1250;
     % total received samples
-    GAP = 16000;
+    GAP = 1250;
 
     % count the number of tag
     tag_number = obj_num + user_num;
@@ -244,6 +244,12 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
         
         obj_final(i,:) = [gen_random_samples(obj_phase, RN16_TIME, obj_phase_size, ran_user(1), GAP, pplot)];
         hand_final(i,:) = [gen_random_samples(hand_phase, RN16_TIME, hand_phase_size, ran_user(2), GAP, pplot)];
+        if(debug)
+            dis = dtw(obj_final(2000:20000), hand_final(2000:20000)); % DTW
+            cross = xcorr(obj_final(2000:20000), hand_final(2000:20000)); % cross correlation
+            figure;
+            plot(cross)
+        end
     end
 
     QUERY_TIME = round(QUERY/(2*1e6)*10000);
