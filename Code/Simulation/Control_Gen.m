@@ -2,7 +2,7 @@ clear;
 clc;
 close all;
 
-Sim_Time = 1000;
+Sim_Time = 1;
 debug = 0;
 % number of random rn16 samples
 RAN_TIM = 1;
@@ -65,7 +65,7 @@ end
 
 %result = [1:length(result);result];
 
-%return
+return
 csvwrite('/home/nss-willy/Downloads/out.csv', name.');
 dlmwrite('/home/nss-willy/Downloads/out.csv', result.', '-append');
 
