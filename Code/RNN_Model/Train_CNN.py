@@ -39,13 +39,13 @@ Y_train = np.array(label_df)
 X_arr = np.array(test_trsps)
 Y_test = np.array(Y_Prepare)
 
-# /= 2pi
-two_pi = 2 * math.pi
-train_arr = train_arr / two_pi
-X_arr = X_arr / two_pi
-
 X_train = train_arr.reshape(int(Y_train.shape[0]), 2, int(train_arr.shape[1]))
 X_test = X_arr.reshape(int(Y_test.shape[0]), 2, int(X_arr.shape[1]))
+
+# /= 2pi
+two_pi = 2 * math.pi
+X_arr = X_arr / two_pi
+train_arr = train_arr / two_pi
 
 print (X_train.shape[1:])
 print (X_test.shape)
@@ -53,6 +53,7 @@ print (X_test.shape)
 # Convert class vectors to binary class matrices.  0 -> 1 0; 1 -> 0 1
 y_train = keras.utils.to_categorical(Y_train)
 y_test = keras.utils.to_categorical(Y_test)
+#print(y_train)
 
 model = Sequential()
 # 32 3 kernels 
@@ -107,16 +108,17 @@ plt.title('model loss')
 plt.ylabel('loss')
 plt.xlabel('epoch')
 plt.legend(['train'], loc='upper right')
- 
+
 classes = model.predict(X_test, batch_size=1)
 predicted = np.reshape(classes, (classes.size,))
 Q = np.array([])
 for i in range(0,len(classes)):
-    if classes[i][0]>=0.5:
+    if classes[i][0]==0.0:
         Q = np.hstack((Q,int(1)))
     else:
         Q = np.hstack((Q,0))
 #print(Q.astype(int))
+
 print(classes)
 print (Q)
 plt.subplot(212)
