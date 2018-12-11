@@ -3,7 +3,7 @@ import numpy as np
 import keras
 import matplotlib.pyplot as plt
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Activation, Flatten
+from keras.layers import Dense, Dropout, Activation, Flatten, Reshape, GlobalAveragePooling1D
 from keras.layers import Conv2D, MaxPooling2D, Conv1D, MaxPooling1D
 
 from sklearn import metrics
@@ -18,6 +18,12 @@ def feature_normalize(dataset):
     mu = np.mean(dataset, axis=0)
     sigma = np.std(dataset, axis=0)
     return (dataset - mu)/sigma
+
+def feature_to01(dataset):
+
+    lo = np.amax(dataset, 0)
+    mo = np.amin(dataset, 0)
+    return (dataset - mo)/ (lo - mo)
 
 batch_size = 32
 num_classes = 10
@@ -56,16 +62,27 @@ Y_test = np.array(Y_Prepare)
 train_arr = train_arr[0:-1]
 X_arr = X_arr[0:-1]
 
+# Normalization
+train_arr = feature_normalize(train_arr)
+X_arr = feature_normalize(X_arr)
+#train_arr = feature_to01(train_arr)
+#X_arr = feature_to01(X_arr)
+
+# choose the part of the data
+termin = 5000
+train_arr = train_arr[0:termin]
+X_arr = X_arr[0:termin]
+
 X_train = train_arr.reshape(int(Y_train.shape[0]), int(train_arr.shape[0]), 2)
 # X_train = train_arr.reshape(int(Y_train.shape[0]), 2, int(train_arr.shape[1]))
 X_test = X_arr.reshape(int(Y_test.shape[0]), int(X_arr.shape[0]), 2)
 
 # Normalization /= 2pi
-two_pi = 2 * math.pi
-X_train /= two_pi
-X_test /= two_pi
+#two_pi = 2 * math.pi
+#X_train /= two_pi
+#X_test /= two_pi
 
-print (X_train.shape)
+print (X_train[0:10])
 print (X_test.shape)
 
 num_samples, num_mode = X_train.shape[1], X_train.shape[2]
@@ -86,7 +103,7 @@ y_test = keras.utils.to_categorical(Y_test)
 #print(y_train)
 # 1D CNN neural network
 model_m = Sequential() 
-model_m.add(Reshape((num_samples, num_mode), input_shape=(input_shape,)))
+model_m.add(Reshape((num_samples, num_mode), input_shape=(Train_input_shape,)))
 model_m.add(Conv1D(100, 10, activation='relu', input_shape=(num_samples, num_mode)))
 model_m.add(Conv1D(100, 10, activation='relu'))
 model_m.add(MaxPooling1D(3))
@@ -94,38 +111,38 @@ model_m.add(Conv1D(160, 10, activation='relu'))
 model_m.add(Conv1D(160, 10, activation='relu'))
 model_m.add(GlobalAveragePooling1D())
 model_m.add(Dropout(0.5))
-model_m.add(Dense(num_classes, activation='softmax'))
+model_m.add(Dense(2, activation='softmax'))
 print(model_m.summary())
 
 callbacks_list = [
     keras.callbacks.ModelCheckpoint(
         filepath='best_model.{epoch:02d}-{val_loss:.2f}.h5',
         monitor='val_loss', save_best_only=True),
-    keras.callbacks.EarlyStopping(monitor='acc', patience=1)
+    keras.callbacks.EarlyStopping(monitor='acc', patience=5)
 ]
 
 model_m.compile(loss='categorical_crossentropy',
                 optimizer='adam', metrics=['accuracy'])
 
 # Hyper-parameters
-BATCH_SIZE = 400
+BATCH_SIZE = 200
 EPOCHS = 50
 
 # Enable validation to use ModelCheckpoint and EarlyStopping callbacks.
 history = model_m.fit(X_train,
-                      Y_train,
+                      y_train,
                       batch_size=BATCH_SIZE,
                       epochs=EPOCHS,
                       callbacks=callbacks_list,
-                      validation_split=0.2,
+                      validation_split=0.1,
                       verbose=1)
 
-score = model_m.evaluate(X_test, Y_test, verbose=1)
+score = model_m.evaluate(X_test, y_test, verbose=1)
 
 print("\nAccuracy on test data: %0.2f" % score[1])
 print("\nLoss on test data: %0.2f" % score[0])
 
-y_pred_test = model_m.predict(x_test)
+y_pred_test = model_m.predict(X_test)
 # Take the class with the highest probability from the test predictions
 max_y_pred_test = np.argmax(y_pred_test, axis=1)
 max_y_test = np.argmax(y_test, axis=1)
