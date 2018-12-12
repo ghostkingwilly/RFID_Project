@@ -166,6 +166,7 @@ def create_segments_and_labels(df, time_steps, step, label_name):
 
     # Bring the segments into a better shape
     reshaped_segments = np.asarray(segments, dtype= np.float32).reshape(-1, time_steps, N_FEATURES)
+    #reshaped_segments = np.asarray(segments, dtype= np.float32).reshape(-1, N_FEATURES, time_steps)
     labels = np.asarray(labels)
 
     return reshaped_segments, labels
@@ -204,11 +205,11 @@ show_basic_dataframe_info(df, 20)
 
 df['activity'].value_counts().plot(kind='bar',
                                    title='Training Examples by Activity Type')
-plt.show()
+#plt.show()
 
 df['user-id'].value_counts().plot(kind='bar',
                                   title='Training Examples by User')
-plt.show()
+#plt.show()
 
 for activity in np.unique(df["activity"]):
     subset = df[df["activity"] == activity][:180]
@@ -235,7 +236,8 @@ df_train['y-axis'] = feature_normalize(df['y-axis'])
 df_train['z-axis'] = feature_normalize(df['z-axis'])
 # Round in order to comply to NSNumber from iOS
 df_train = df_train.round({'x-axis': 6, 'y-axis': 6, 'z-axis': 6})
-
+print ("============ Df shape =============")
+print (df_train['x-axis'].shape)
 # Reshape the training data into segments
 # so that they can be processed by the network
 x_train, y_train = create_segments_and_labels(df_train,
@@ -267,7 +269,7 @@ print(list(le.classes_))
 # it properly into coreml later, the preferred matrix of shape [40,3]
 # cannot be read in with the current version of coreml (see also reshape
 # layer as the first layer in the keras model)
-input_shape = (num_time_periods*num_sensors)
+input_shape = (num_time_periods * num_sensors)
 x_train = x_train.reshape(x_train.shape[0], input_shape)
 
 print('x_train shape:', x_train.shape)
@@ -289,11 +291,13 @@ print('New y_train shape: ', y_train.shape)
 # %%
 
 print("\n--- Create neural network model ---\n")
-
+#TIME_PERIODS num_sensors 10
 # 1D CNN neural network
 model_m = Sequential() 
 model_m.add(Reshape((TIME_PERIODS, num_sensors), input_shape=(input_shape,)))
-model_m.add(Conv1D(100, 10, activation='relu', input_shape=(TIME_PERIODS, num_sensors)))
+#model_m.add(Reshape((TIME_PERIODS, num_time_periods), input_shape=(input_shape,)))
+#model_m.add(Reshape((num_time_periods,TIME_PERIODS), input_shape=(input_shape,)))
+model_m.add(Conv1D(100, 10, activation='relu', input_shape=(num_time_periods, TIME_PERIODS)))
 model_m.add(Conv1D(100, 10, activation='relu'))
 model_m.add(MaxPooling1D(3))
 model_m.add(Conv1D(160, 10, activation='relu'))
@@ -381,7 +385,7 @@ score = model_m.evaluate(x_test, y_test, verbose=1)
 print("\nAccuracy on test data: %0.2f" % score[1])
 print("\nLoss on test data: %0.2f" % score[0])
 
- # %%
+# %%
 
 print("\n--- Confusion matrix for test data ---\n")
 
