@@ -28,8 +28,6 @@ def feature_to01(dataset):
 batch_size = 32
 num_classes = 10
 epochs = 100
-data_augmentation = True
-num_predictions = 20
 save_dir = os.path.join(os.getcwd(), 'saved_models')
 model_name = 'keras_trained_model.h5'
 
@@ -46,10 +44,6 @@ X_Prepare = pd.DataFrame(X_load)
 Y_load = pd.read_csv("label_test.csv")
 Y_Prepare = pd.DataFrame(Y_load)
 
-# NO NEED!!!!!! Transpose the datas
-data_trsps = train_df.T
-test_trsps = X_Prepare.T
-
 train_arr = np.asarray(train_df, dtype= np.float32)
 # train_arr = np.array(data_trsps)
 Y_train = np.array(label_df)
@@ -62,33 +56,27 @@ Y_test = np.array(Y_Prepare)
 train_arr = train_arr[0:-1]
 X_arr = X_arr[0:-1]
 
-# Normalization
+# choose the part of the data
+termin = 1000
+train_arr = train_arr[100:termin]
+X_arr = X_arr[100:termin]
+
+# Normalization debug
 train_arr = feature_normalize(train_arr)
 X_arr = feature_normalize(X_arr)
-#train_arr = feature_to01(train_arr)
-#X_arr = feature_to01(X_arr)
 
-# choose the part of the data
-termin = 5000
-train_arr = train_arr[0:termin]
-X_arr = X_arr[0:termin]
-
-X_train = train_arr.reshape(int(Y_train.shape[0]), int(train_arr.shape[0]), 2)
+#X_train = train_arr.reshape(int(Y_train.shape[0]), int(train_arr.shape[0]), 2)
+#X_test = X_arr.reshape(int(Y_test.shape[0]), int(X_arr.shape[0]), 2)
+X_train = np.hsplit(train_arr, 2)
+X_test = np.hsplit(X_arr, 2)
+X_train = np.asarray(X_train)
+X_test = np.asarray(X_test)
 # X_train = train_arr.reshape(int(Y_train.shape[0]), 2, int(train_arr.shape[1]))
-X_test = X_arr.reshape(int(Y_test.shape[0]), int(X_arr.shape[0]), 2)
-
-# Normalization /= 2pi
-#two_pi = 2 * math.pi
-#X_train /= two_pi
-#X_test /= two_pi
-
-print (X_train[0:10])
-print (X_test.shape)
-
+print (X_train.shape)
 num_samples, num_mode = X_train.shape[1], X_train.shape[2]
 Train_input_shape = (num_samples * num_mode)
 X_train = X_train.reshape(X_train.shape[0], Train_input_shape)
-
+#print (X_train[0:5])
 Test_shape = (X_test.shape[1] * X_test.shape[2])
 X_test = X_test.reshape(X_test.shape[0], Test_shape)
 
@@ -100,6 +88,9 @@ Y_train = Y_train.astype("float32")
 # Convert class vectors to binary class matrices.  0 -> 1 0; 1 -> 0 1
 y_train = keras.utils.to_categorical(Y_train)
 y_test = keras.utils.to_categorical(Y_test)
+#y_train = Y_train
+#y_test = Y_test
+
 #print(y_train)
 # 1D CNN neural network
 model_m = Sequential() 
@@ -112,6 +103,7 @@ model_m.add(Conv1D(160, 10, activation='relu'))
 model_m.add(GlobalAveragePooling1D())
 model_m.add(Dropout(0.5))
 model_m.add(Dense(2, activation='softmax'))
+#model_m.add(Dense(units=1, kernel_initializer='normal', activation='sigmoid'))
 print(model_m.summary())
 
 callbacks_list = [
@@ -120,7 +112,8 @@ callbacks_list = [
         monitor='val_loss', save_best_only=True),
     keras.callbacks.EarlyStopping(monitor='acc', patience=5)
 ]
-
+#model_m.compile(loss='binary_crossentropy',
+#                optimizer='adam', metrics=['accuracy'])
 model_m.compile(loss='categorical_crossentropy',
                 optimizer='adam', metrics=['accuracy'])
 
@@ -159,18 +152,10 @@ plt.ylim(0)
 plt.legend()
 plt.show()
 
-print(classification_report(max_y_test, max_y_pred_test))
+# print(classification_report(max_y_test, max_y_pred_test))
+print (y_pred_test)
 
 """
-plt.figure(1)
-plt.subplot(211)
-plt.plot(history.history['loss'])
-plt.plot(history.history['val_loss'])
-plt.title('model loss')
-plt.ylabel('loss')
-plt.xlabel('epoch')
-plt.legend(['train'], loc='upper right')
-
 classes = model.predict(X_test, batch_size=1)
 predicted = np.reshape(classes, (classes.size,))
 Q = np.array([])
