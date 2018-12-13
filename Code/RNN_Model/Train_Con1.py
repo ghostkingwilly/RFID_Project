@@ -57,9 +57,9 @@ train_arr = train_arr[0:-1]
 X_arr = X_arr[0:-1]
 
 # choose the part of the data
-termin = 1000
-train_arr = train_arr[100:termin]
-X_arr = X_arr[100:termin]
+termin = 200
+train_arr = train_arr[0:termin]
+X_arr = X_arr[0:termin]
 
 # Normalization debug
 train_arr = feature_normalize(train_arr)
@@ -67,16 +67,20 @@ X_arr = feature_normalize(X_arr)
 
 #X_train = train_arr.reshape(int(Y_train.shape[0]), int(train_arr.shape[0]), 2)
 #X_test = X_arr.reshape(int(Y_test.shape[0]), int(X_arr.shape[0]), 2)
-X_train = np.hsplit(train_arr, 2)
-X_test = np.hsplit(X_arr, 2)
+print (train_arr.shape)
+t_split_size = train_arr.shape[1]/2
+te_split_size = X_arr.shape[1]/2
+X_train = np.hsplit(train_arr, t_split_size)
+X_test = np.hsplit(X_arr, te_split_size)
 X_train = np.asarray(X_train)
 X_test = np.asarray(X_test)
 # X_train = train_arr.reshape(int(Y_train.shape[0]), 2, int(train_arr.shape[1]))
 print (X_train.shape)
+print (X_test.shape)
+
 num_samples, num_mode = X_train.shape[1], X_train.shape[2]
 Train_input_shape = (num_samples * num_mode)
 X_train = X_train.reshape(X_train.shape[0], Train_input_shape)
-#print (X_train[0:5])
 Test_shape = (X_test.shape[1] * X_test.shape[2])
 X_test = X_test.reshape(X_test.shape[0], Test_shape)
 
@@ -91,7 +95,6 @@ y_test = keras.utils.to_categorical(Y_test)
 #y_train = Y_train
 #y_test = Y_test
 
-#print(y_train)
 # 1D CNN neural network
 model_m = Sequential() 
 model_m.add(Reshape((num_samples, num_mode), input_shape=(Train_input_shape,)))
@@ -107,9 +110,9 @@ model_m.add(Dense(2, activation='softmax'))
 print(model_m.summary())
 
 callbacks_list = [
-    keras.callbacks.ModelCheckpoint(
-        filepath='best_model.{epoch:02d}-{val_loss:.2f}.h5',
-        monitor='val_loss', save_best_only=True),
+    #keras.callbacks.ModelCheckpoint(
+    #   filepath='best_model.{epoch:02d}-{val_loss:.2f}.h5',
+    #   monitor='val_loss', save_best_only=True),
     keras.callbacks.EarlyStopping(monitor='acc', patience=5)
 ]
 #model_m.compile(loss='binary_crossentropy',
@@ -153,22 +156,19 @@ plt.legend()
 plt.show()
 
 # print(classification_report(max_y_test, max_y_pred_test))
+print (Y_test.T)
 print (y_pred_test)
-
-"""
-classes = model.predict(X_test, batch_size=1)
-predicted = np.reshape(classes, (classes.size,))
 Q = np.array([])
-for i in range(0,len(classes)):
-    if classes[i][0]==0.0:
+for i in range(0,len(y_pred_test)):
+    if y_pred_test[i][0] > y_pred_test[i][1]:
         Q = np.hstack((Q,int(1)))
     else:
         Q = np.hstack((Q,0))
-#print(Q.astype(int))
 
-print(classes)
+#print(Q.astype(int))
+#print(classes)
 print (Q)
-plt.subplot(212)
+
 plt.plot(Y_test)
 plt.plot(Q)
 plt.title('Test Result')
@@ -176,4 +176,3 @@ plt.ylabel('mode')
 plt.xlabel('sample number')
 plt.legend(['Origin', 'Predict'], loc='upper right')
 plt.show()
-"""
