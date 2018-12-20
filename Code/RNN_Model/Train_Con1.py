@@ -10,20 +10,11 @@ from sklearn import metrics
 from sklearn.metrics import classification_report
 from sklearn import preprocessing
 
-import os
-import math
-
 def feature_normalize(dataset):
 
     mu = np.mean(dataset, axis=0)
     sigma = np.std(dataset, axis=0)
     return (dataset - mu)/sigma
-
-def feature_to01(dataset):
-
-    lo = np.amax(dataset, 0)
-    mo = np.amin(dataset, 0)
-    return (dataset - mo)/ (lo - mo)
 
 # compression 
 def compress(dataset):
@@ -33,47 +24,31 @@ def compress(dataset):
             newdata.append(dataset[idx,:])
     return np.asarray(newdata) 
 
-batch_size = 32
 num_classes = 10
-epochs = 100
-save_dir = os.path.join(os.getcwd(), 'saved_models')
-model_name = 'keras_trained_model.h5'
 
 # Data load
-train = pd.read_csv("out_A.csv")
-#train = pd.read_csv("out_1000.csv")
+train = pd.read_csv("out_Aerr.csv")
 train_df = pd.DataFrame(train)
 
-#label = pd.read_csv("label_1000.csv")
-label = pd.read_csv("label_A.csv")
+label = pd.read_csv("label_Aerr.csv")
 label_df = pd.DataFrame(label)
 
-X_load = pd.read_csv("out_test_A.csv")
-#X_load = pd.read_csv("out_test_100.csv")
+X_load = pd.read_csv("out.csv")
 X_Prepare = pd.DataFrame(X_load)
 
-Y_load = pd.read_csv("label_test_A.csv")
-#Y_load = pd.read_csv("label_test_100.csv")
+Y_load = pd.read_csv("label.csv")
 Y_Prepare = pd.DataFrame(Y_load)
 
 train_arr = np.asarray(train_df, dtype= np.float32)
-# train_arr = np.array(data_trsps)
 Y_train = np.array(label_df)
 
-# X_arr = np.array(test_trsps)
 X_arr = np.asarray(X_Prepare, dtype= np.float32)
 Y_test = np.array(Y_Prepare)
 
 # eliminate the last row
 train_arr = train_arr[0:-1]
 X_arr = X_arr[0:-1]
-"""
-# test for dataself
-X_arr = train_arr[:][600:800]
-Y_test = Y_train[:][600:800]
-print (X_arr.shape)
-print (Y_test.shape)
-"""
+
 # Normalization
 train_arr = feature_normalize(train_arr)
 X_arr = feature_normalize(X_arr)
@@ -98,15 +73,13 @@ X_train = np.hsplit(train_arr, t_split_size)
 X_test = np.hsplit(X_arr, te_split_size)
 X_train = np.asarray(X_train)
 X_test = np.asarray(X_test)
-#print (X_train.shape)
-#print (X_test.shape)
 
 num_samples, num_mode = X_train.shape[1], X_train.shape[2]
 
 X_train = X_train.astype("float32")
 X_test = X_test.astype("float32")
 Y_train = Y_train.astype("float32")
-Y_train = Y_train.astype("float32")
+Y_test = Y_test.astype("float32")
 
 # Convert class vectors to binary class matrices.  0 -> 1 0; 1 -> 0 1
 y_train = keras.utils.to_categorical(Y_train)
@@ -157,6 +130,9 @@ y_pred_test = model_m.predict(X_test)
 max_y_pred_test = np.argmax(y_pred_test, axis=1)
 max_y_test = np.argmax(y_test, axis=1)
 
+# saved the model
+model_m.save('AoA_err.h5')
+
 plt.figure(figsize=(6, 4))
 plt.plot(history.history['acc'], "g--", label="Accuracy of training data")
 plt.plot(history.history['val_acc'], "g", label="Accuracy of validation data")
@@ -167,7 +143,7 @@ plt.ylabel('Accuracy and Loss')
 plt.xlabel('Training Epoch')
 plt.ylim(0)
 plt.legend()
-plt.show()
+#plt.show()
 
 # print(classification_report(max_y_test, max_y_pred_test))
 print (Y_test.T)
@@ -189,4 +165,4 @@ plt.title('Test Result')
 plt.ylabel('mode')
 plt.xlabel('sample number')
 plt.legend(['Origin', 'Predict'], loc='upper right')
-plt.show()
+#plt.show()
