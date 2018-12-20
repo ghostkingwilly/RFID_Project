@@ -28,7 +28,7 @@ function [out1, out2] = gen_obj_trace(obj_num, xi, yi, pace, dis, dir, slope, fl
             out2 = out1;
             
         elseif(mod == 2) % move along different direction
-            % random speed
+            % random slope
             ran_a = -slope; ran_b = slope;
             slp = (ran_b-ran_a).*rand(1,1)+ran_a;
             
