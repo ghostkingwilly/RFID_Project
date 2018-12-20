@@ -25,6 +25,14 @@ def feature_to01(dataset):
     mo = np.amin(dataset, 0)
     return (dataset - mo)/ (lo - mo)
 
+# compression 
+def compress(dataset):
+    newdata = []
+    for idx in range(dataset.shape[0]):
+        if idx % 10 == 0:
+            newdata.append(dataset[idx,:])
+    return np.asarray(newdata) 
+
 batch_size = 32
 num_classes = 10
 epochs = 100
@@ -32,16 +40,20 @@ save_dir = os.path.join(os.getcwd(), 'saved_models')
 model_name = 'keras_trained_model.h5'
 
 # Data load
-train = pd.read_csv("out.csv")
+train = pd.read_csv("out_A.csv")
+#train = pd.read_csv("out_1000.csv")
 train_df = pd.DataFrame(train)
 
-label = pd.read_csv("label.csv")
+#label = pd.read_csv("label_1000.csv")
+label = pd.read_csv("label_A.csv")
 label_df = pd.DataFrame(label)
 
-X_load = pd.read_csv("out_test.csv")
+X_load = pd.read_csv("out_test_A.csv")
+#X_load = pd.read_csv("out_test_100.csv")
 X_Prepare = pd.DataFrame(X_load)
 
-Y_load = pd.read_csv("label_test.csv")
+Y_load = pd.read_csv("label_test_A.csv")
+#Y_load = pd.read_csv("label_test_100.csv")
 Y_Prepare = pd.DataFrame(Y_load)
 
 train_arr = np.asarray(train_df, dtype= np.float32)
@@ -55,34 +67,41 @@ Y_test = np.array(Y_Prepare)
 # eliminate the last row
 train_arr = train_arr[0:-1]
 X_arr = X_arr[0:-1]
-
-# choose the part of the data
-termin = 200
-train_arr = train_arr[0:termin]
-X_arr = X_arr[0:termin]
-
-# Normalization debug
+"""
+# test for dataself
+X_arr = train_arr[:][600:800]
+Y_test = Y_train[:][600:800]
+print (X_arr.shape)
+print (Y_test.shape)
+"""
+# Normalization
 train_arr = feature_normalize(train_arr)
 X_arr = feature_normalize(X_arr)
 
-#X_train = train_arr.reshape(int(Y_train.shape[0]), int(train_arr.shape[0]), 2)
-#X_test = X_arr.reshape(int(Y_test.shape[0]), int(X_arr.shape[0]), 2)
+# choose the part of the data  (only one RN16)
+RN16idx = 0
+termin = RN16idx + 1600
+train_arr = train_arr[RN16idx:termin]
+X_arr = X_arr[RN16idx:termin]
+
+# compression
+train_arr = compress(train_arr)
+X_arr = compress(X_arr)
 print (train_arr.shape)
+print (X_arr.shape)
+
 t_split_size = train_arr.shape[1]/2
 te_split_size = X_arr.shape[1]/2
+
+# hsplit(target array, number of splited set)
 X_train = np.hsplit(train_arr, t_split_size)
 X_test = np.hsplit(X_arr, te_split_size)
 X_train = np.asarray(X_train)
 X_test = np.asarray(X_test)
-# X_train = train_arr.reshape(int(Y_train.shape[0]), 2, int(train_arr.shape[1]))
-print (X_train.shape)
-print (X_test.shape)
+#print (X_train.shape)
+#print (X_test.shape)
 
 num_samples, num_mode = X_train.shape[1], X_train.shape[2]
-Train_input_shape = (num_samples * num_mode)
-X_train = X_train.reshape(X_train.shape[0], Train_input_shape)
-Test_shape = (X_test.shape[1] * X_test.shape[2])
-X_test = X_test.reshape(X_test.shape[0], Test_shape)
 
 X_train = X_train.astype("float32")
 X_test = X_test.astype("float32")
@@ -92,12 +111,10 @@ Y_train = Y_train.astype("float32")
 # Convert class vectors to binary class matrices.  0 -> 1 0; 1 -> 0 1
 y_train = keras.utils.to_categorical(Y_train)
 y_test = keras.utils.to_categorical(Y_test)
-#y_train = Y_train
-#y_test = Y_test
 
 # 1D CNN neural network
-model_m = Sequential() 
-model_m.add(Reshape((num_samples, num_mode), input_shape=(Train_input_shape,)))
+model_m = Sequential()
+#model_m.add(Reshape((num_samples, num_mode), input_shape=(Train_input_shape,)))
 model_m.add(Conv1D(100, 10, activation='relu', input_shape=(num_samples, num_mode)))
 model_m.add(Conv1D(100, 10, activation='relu'))
 model_m.add(MaxPooling1D(3))
@@ -106,17 +123,14 @@ model_m.add(Conv1D(160, 10, activation='relu'))
 model_m.add(GlobalAveragePooling1D())
 model_m.add(Dropout(0.5))
 model_m.add(Dense(2, activation='softmax'))
-#model_m.add(Dense(units=1, kernel_initializer='normal', activation='sigmoid'))
 print(model_m.summary())
 
 callbacks_list = [
     #keras.callbacks.ModelCheckpoint(
     #   filepath='best_model.{epoch:02d}-{val_loss:.2f}.h5',
     #   monitor='val_loss', save_best_only=True),
-    keras.callbacks.EarlyStopping(monitor='acc', patience=5)
+    keras.callbacks.EarlyStopping(monitor='loss', patience=2)
 ]
-#model_m.compile(loss='binary_crossentropy',
-#                optimizer='adam', metrics=['accuracy'])
 model_m.compile(loss='categorical_crossentropy',
                 optimizer='adam', metrics=['accuracy'])
 
@@ -129,7 +143,7 @@ history = model_m.fit(X_train,
                       y_train,
                       batch_size=BATCH_SIZE,
                       epochs=EPOCHS,
-                      callbacks=callbacks_list,
+                      #callbacks=callbacks_list,
                       validation_split=0.1,
                       verbose=1)
 
@@ -157,10 +171,10 @@ plt.show()
 
 # print(classification_report(max_y_test, max_y_pred_test))
 print (Y_test.T)
-print (y_pred_test)
+
 Q = np.array([])
 for i in range(0,len(y_pred_test)):
-    if y_pred_test[i][0] > y_pred_test[i][1]:
+    if y_pred_test[i][0] <= y_pred_test[i][1]:
         Q = np.hstack((Q,int(1)))
     else:
         Q = np.hstack((Q,0))
@@ -169,8 +183,8 @@ for i in range(0,len(y_pred_test)):
 #print(classes)
 print (Q)
 
-plt.plot(Y_test)
-plt.plot(Q)
+plt.plot(Y_test,"g")
+plt.plot(Q, "r--")
 plt.title('Test Result')
 plt.ylabel('mode')
 plt.xlabel('sample number')
