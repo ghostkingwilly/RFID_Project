@@ -2,17 +2,19 @@ clear;
 clc;
 close all;
 
-Sim_Time = 1;
+Sim_Time = 100; % 400
 debug = 0;
 % number of random rn16 samples
 RAN_TIM = 1;
 % slope
-slope = 1;
+slp = 5;
+ran_a = -slp; ran_b = slp;
+
 % flag for verticle line
 flag = 0; % non verticle
 pplot = 0;
 
-reader = [1,1];
+reader = [5,0];
 
 % Need to be Random?
 obj_num = 1;
@@ -20,12 +22,15 @@ usr_num = 1;
 direction = 1;
 phase_num = obj_num + usr_num;
 
+%debug
+%mode = randi([1,4], 1, Sim_Time);
 mode = randi([1,3], 1, Sim_Time);
 mode = mode - 1;
 
 % initial 
 result = [];
 for i=1:Sim_Time
+    slope = (ran_b-ran_a).*rand(1,1)+ran_a;
     [obj_tmp, usr_tmp] = Object_Phase_Operator(mode(i), RAN_TIM, slope, flag, reader, obj_num, usr_num, direction, debug, pplot);
     result = [result ; obj_tmp; usr_tmp];
 end
@@ -65,7 +70,7 @@ end
 
 %result = [1:length(result);result];
 
-return
+%return
 csvwrite('/home/nss-willy/Downloads/out.csv', name.');
 dlmwrite('/home/nss-willy/Downloads/out.csv', result.', '-append');
 
