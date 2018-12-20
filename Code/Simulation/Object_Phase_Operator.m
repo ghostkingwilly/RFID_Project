@@ -28,7 +28,7 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
     %debug = 1; 
     % time stamp
     %WALK_DIS = 55;
-    WALK_DIS = 2000;
+    WALK_DIS = 1000;
     % spread -> need more data
     %WALK_PACE = 0.02; % cm/s
     WALK_PACE = 0.02; % cm/s
@@ -36,10 +36,13 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
     PLOT_SIZE = WALK_DIS / WALK_PACE;
     
     if(debug)
+        pplot = 0;
         % number of random rn16 samples
-        RAN_TIM = 1;
+        RAN_TIM = 2;
         % slope
-        slope = 1;
+        slp = 50;
+        ran_a = -slp; ran_b = slp;
+        slope = (ran_b-ran_a).*rand(1,1)+ran_a;
         % flag for verticle line
         flag = 0; % non verticle
     end
@@ -47,7 +50,7 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
     % sample time
     TOT_SAM = 15789;
     QUERY = 6754;
-    RN16 = 1100;
+    RN16 = 1250;
 
     %% Input Setting
     
@@ -210,14 +213,87 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
         obj_phase = gen_phase_cal(obj_mov_x, obj_mov_y, reader, 1);
     end
     
-    if(mod == 3)
+    if(mod == 3) % hand don't move
         % last flag 1 for moving phase
         usr_phase_tmp = gen_phase_cal(usr_or_xi, hand_mov_x, reader, 0);
         hand_phase = usr_phase_tmp .* ones(1,(PLOT_SIZE+1));
     else
         hand_phase = gen_phase_cal(hand_mov_x, hand_mov_y, reader, 1);
     end
+    
+    %% AoA Calculation
+    %{
+    % don't move
+    if (mod == 1 || mod == 3)
+        % obj coordinate combine
+        obj = [obj_or_xi;obj_or_yi];
+        % reader to obj
+        Read2obj = norm(abs(obj-reader));
+        %x lam
+        x_lam = obj_or_xi - reader(1);
+        if (obj_or_yi >= reader)    
+            obj_aoa_tmp = abs(acos(x_lam/Read2obj)*180/pi);
+        else
+            obj_aoa_tmp = 360 - abs(acos(x_lam/Read2obj)*180/pi);
+        end
+        obj_final = obj_aoa_tmp.* ones(1,(PLOT_SIZE+1));
+    % move 
+    else
+        obj = [obj_mov_x; obj_mov_y];
+        Read2obj_tra = obj - reader.';
 
+        % The two-norm of each column
+        Read2obj_dis = sqrt(sum(abs(Read2obj_tra).^2,1));
+        x_lam = obj_mov_x - reader(1);
+        
+        for i=1:length(obj_mov_x)
+            if (obj_mov_y(1,i) >= reader(2))
+                obj_final(1,i) = abs(acos(x_lam(i)/Read2obj_dis(i))*180/pi);
+            else
+                obj_final(1,i) = 360 - abs(acos(x_lam(i)/Read2obj_dis(i))*180/pi);
+            end
+        end
+        
+    end
+    
+    % hand don't move
+    if (mod == 3)
+        % obj coordinate combine
+        hand = [usr_or_xi;usr_or_yi];
+        % reader to obj
+        Read2hand = norm(abs(hand-reader));
+        %x lam
+        x_lamh = usr_or_xi - reader(1);
+        if (usr_or_yi >= reader)    
+            hand_aoa_tmp = abs(acos(x_lamh/Read2obj)*180/pi);
+        else
+            hand_aoa_tmp = 360 - abs(acos(x_lamh/Read2hand)*180/pi);
+        end
+        hand_final = hand_aoa_tmp.* ones(1,(PLOT_SIZE+1));
+    % move 
+    else
+        hand = [hand_mov_x;hand_mov_y];
+        Read2hand_tra = hand - reader.';
+
+        % The two-norm of each column
+        Read2hand_dis = sqrt(sum(abs(Read2hand_tra).^2,1));
+        x_lamh = hand_mov_x - reader(1);
+        
+        for i=1:length(hand_mov_x)
+            if (hand_mov_y(1,i) >= reader(2))
+                hand_final(1,i) = abs(acos(x_lamh(i)/Read2hand_dis(i))*180/pi);
+            else
+                hand_final(1,i) = 360 - abs(acos(x_lamh(i)/Read2hand_dis(i))*180/pi);
+            end
+        end
+        
+    end
+    %gen_plot_traj(ini_x, ini_y, obj_mov_x, obj_mov_y, hand_mov_x, hand_mov_y, PLOT_SIZE, mod);
+
+    %figure();
+    %gen_plot_phase(obj_final, hand_final, PLOT_SIZE);
+    %figure();
+    %}
     %% Trajectory and Phase Plot
 %{
     gen_plot_traj(ini_x, ini_y, obj_mov_x, obj_mov_y, hand_mov_x, hand_mov_y, PLOT_SIZE, mod);
@@ -225,6 +301,7 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
     figure();
     gen_plot_phase(obj_phase, hand_phase, PLOT_SIZE);
 %}
+
     %% Mask
     % phase size
     obj_phase_size = length(obj_phase);
@@ -233,7 +310,7 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
     % received samples
     RN16_TIME =  1250;
     % total received samples
-    GAP = 1250;
+    GAP = 1260;
 
     % count the number of tag
     tag_number = obj_num + user_num;
@@ -244,12 +321,6 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
         
         obj_final(i,:) = [gen_random_samples(obj_phase, RN16_TIME, obj_phase_size, ran_user(1), GAP, pplot)];
         hand_final(i,:) = [gen_random_samples(hand_phase, RN16_TIME, hand_phase_size, ran_user(2), GAP, pplot)];
-        if(debug)
-            dis = dtw(obj_final(2000:20000), hand_final(2000:20000)); % DTW
-            cross = xcorr(obj_final(2000:20000), hand_final(2000:20000)); % cross correlation
-            figure;
-            plot(cross)
-        end
     end
 
     QUERY_TIME = round(QUERY/(2*1e6)*10000);
