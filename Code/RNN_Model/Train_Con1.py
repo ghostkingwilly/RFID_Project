@@ -27,16 +27,16 @@ def compress(dataset):
 num_classes = 10
 
 # Data load
-train = pd.read_csv("out_Aerr.csv")
+train = pd.read_csv("./ML_Data/out_2000_10r.csv")
 train_df = pd.DataFrame(train)
 
-label = pd.read_csv("label_Aerr.csv")
+label = pd.read_csv("./ML_Data/label_2000_10r.csv")
 label_df = pd.DataFrame(label)
 
-X_load = pd.read_csv("out.csv")
+X_load = pd.read_csv("./ML_Data/out_Atest_10_rr.csv")
 X_Prepare = pd.DataFrame(X_load)
 
-Y_load = pd.read_csv("label.csv")
+Y_load = pd.read_csv("./ML_Data/label_Atest_10_rr.csv")
 Y_Prepare = pd.DataFrame(Y_load)
 
 train_arr = np.asarray(train_df, dtype= np.float32)
@@ -55,9 +55,11 @@ X_arr = feature_normalize(X_arr)
 
 # choose the part of the data  (only one RN16)
 RN16idx = 0
-termin = RN16idx + 1600
-train_arr = train_arr[RN16idx:termin]
-X_arr = X_arr[RN16idx:termin]
+termin = 1250
+alignm = 4000
+train_arr = train_arr[RN16idx:RN16idx+termin]
+X_arr = X_arr[alignm:alignm+termin]
+#X_arr = X_arr[RN16idx:termin]
 
 # compression
 train_arr = compress(train_arr)
@@ -102,7 +104,7 @@ callbacks_list = [
     #keras.callbacks.ModelCheckpoint(
     #   filepath='best_model.{epoch:02d}-{val_loss:.2f}.h5',
     #   monitor='val_loss', save_best_only=True),
-    keras.callbacks.EarlyStopping(monitor='loss', patience=2)
+    keras.callbacks.EarlyStopping(monitor='loss', patience=8)
 ]
 model_m.compile(loss='categorical_crossentropy',
                 optimizer='adam', metrics=['accuracy'])
@@ -116,7 +118,7 @@ history = model_m.fit(X_train,
                       y_train,
                       batch_size=BATCH_SIZE,
                       epochs=EPOCHS,
-                      #callbacks=callbacks_list,
+                      callbacks=callbacks_list,
                       validation_split=0.1,
                       verbose=1)
 
@@ -131,7 +133,7 @@ max_y_pred_test = np.argmax(y_pred_test, axis=1)
 max_y_test = np.argmax(y_test, axis=1)
 
 # saved the model
-model_m.save('AoA_err.h5')
+model_m.save('AoA_10n2000r4000.h5')
 
 plt.figure(figsize=(6, 4))
 plt.plot(history.history['acc'], "g--", label="Accuracy of training data")
@@ -143,7 +145,7 @@ plt.ylabel('Accuracy and Loss')
 plt.xlabel('Training Epoch')
 plt.ylim(0)
 plt.legend()
-#plt.show()
+plt.show()
 
 # print(classification_report(max_y_test, max_y_pred_test))
 print (Y_test.T)
@@ -165,4 +167,4 @@ plt.title('Test Result')
 plt.ylabel('mode')
 plt.xlabel('sample number')
 plt.legend(['Origin', 'Predict'], loc='upper right')
-#plt.show()
+plt.show()
