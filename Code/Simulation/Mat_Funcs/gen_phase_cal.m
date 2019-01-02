@@ -1,7 +1,7 @@
 function [phase_shift] = gen_phase_cal(xi, yi, reader, flag)
     
     % meter to centermeter
-    LIGHT_SPEED = 3 * 1e10; 
+    LIGHT_SPEED = physconst('LightSpeed') * 1e2; 
     
     FREQ = 900 * 1e6;
     
