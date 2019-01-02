@@ -23,13 +23,13 @@ def compress(dataset):
 
 # load the model
 #model = load_model('Phase.h5')
-model = load_model('AoA_err.h5')
+model = load_model('AoA_20n4000r.h5')
 
 # Data load
-X_load = pd.read_csv("out.csv")
+X_load = pd.read_csv("./ML_Data/out_Atest_15_rr.csv")
 X_Prepare = pd.DataFrame(X_load)
 
-Y_load = pd.read_csv("label.csv")
+Y_load = pd.read_csv("./ML_Data/label_Atest_15_rr.csv")
 Y_Prepare = pd.DataFrame(Y_load)
 
 # X_arr = np.array(test_trsps)
@@ -43,9 +43,9 @@ X_arr = X_arr[0:-1]
 X_arr = feature_normalize(X_arr)
 
 # choose the part of the data  (only one RN16)
-RN16idx = 0
-termin = RN16idx + 1600
-X_arr = X_arr[RN16idx:termin]
+termin = 1250
+alignm = 0
+X_arr = X_arr[alignm:alignm+termin]
 
 # compression
 X_arr = compress(X_arr)
@@ -94,3 +94,24 @@ plt.legend(['Origin', 'Predict'], loc='upper right')
 #plt.show()
 print("\n--- Classification report for test data ---\n")
 print(classification_report(max_y_test, max_y_pred_test))
+
+FN = 0
+FP = 0
+TP = 0
+TN = 0
+for j in range(0,len(Q)):
+    if Q[j]==0 and Y_test[j]==1:
+        FN = FN+1
+    if Q[j]==1 and Y_test[j]==0:
+        FP = FP+1
+    if Q[j]==0 and Y_test[j]==0:
+        TN = TN+1
+    if Q[j]==1 and Y_test[j]==1:
+        TP = TP+1
+print (FN, FP, TP, TN)
+
+print ("\n--- False Positive Rate ---\n")
+print (float(FP)/float(TN+FP)*100)
+
+print ("\n--- False Negative Rate ---\n")
+print (float(FN)/float(TP+FN)*100)
