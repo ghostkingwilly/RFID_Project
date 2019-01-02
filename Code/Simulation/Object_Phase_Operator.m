@@ -222,7 +222,13 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
     end
     
     %% AoA Calculation
-    %{
+    
+    % AoA error
+    s = rng;
+    aoa_error = normrnd(0,3.8,[1,PLOT_SIZE+1]);  % error 10
+    %aoa_error = normrnd(0,5,[1,PLOT_SIZE+1]);    % error 15
+    %aoa_error = normrnd(0,6.1,[1,PLOT_SIZE+1]); % error 20
+    
     % don't move
     if (mod == 1 || mod == 3)
         % obj coordinate combine
@@ -236,7 +242,7 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
         else
             obj_aoa_tmp = 360 - abs(acos(x_lam/Read2obj)*180/pi);
         end
-        obj_final = obj_aoa_tmp.* ones(1,(PLOT_SIZE+1));
+        obj_final = obj_aoa_tmp.* ones(1,(PLOT_SIZE+1)) + aoa_error;
     % move 
     else
         obj = [obj_mov_x; obj_mov_y];
@@ -248,9 +254,9 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
         
         for i=1:length(obj_mov_x)
             if (obj_mov_y(1,i) >= reader(2))
-                obj_final(1,i) = abs(acos(x_lam(i)/Read2obj_dis(i))*180/pi);
+                obj_final(1,i) = abs(acos(x_lam(i)/Read2obj_dis(i))*180/pi) + aoa_error(i);
             else
-                obj_final(1,i) = 360 - abs(acos(x_lam(i)/Read2obj_dis(i))*180/pi);
+                obj_final(1,i) = 360 - abs(acos(x_lam(i)/Read2obj_dis(i))*180/pi) + aoa_error(i);
             end
         end
         
@@ -269,7 +275,7 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
         else
             hand_aoa_tmp = 360 - abs(acos(x_lamh/Read2hand)*180/pi);
         end
-        hand_final = hand_aoa_tmp.* ones(1,(PLOT_SIZE+1));
+        hand_final = hand_aoa_tmp.* ones(1,(PLOT_SIZE+1)) + aoa_error;
     % move 
     else
         hand = [hand_mov_x;hand_mov_y];
@@ -281,9 +287,9 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
         
         for i=1:length(hand_mov_x)
             if (hand_mov_y(1,i) >= reader(2))
-                hand_final(1,i) = abs(acos(x_lamh(i)/Read2hand_dis(i))*180/pi);
+                hand_final(1,i) = abs(acos(x_lamh(i)/Read2hand_dis(i))*180/pi) + aoa_error(i);
             else
-                hand_final(1,i) = 360 - abs(acos(x_lamh(i)/Read2hand_dis(i))*180/pi);
+                hand_final(1,i) = 360 - abs(acos(x_lamh(i)/Read2hand_dis(i))*180/pi) + aoa_error(i);
             end
         end
         
@@ -293,7 +299,6 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
     %figure();
     %gen_plot_phase(obj_final, hand_final, PLOT_SIZE);
     %figure();
-    %}
     %% Trajectory and Phase Plot
 %{
     gen_plot_traj(ini_x, ini_y, obj_mov_x, obj_mov_y, hand_mov_x, hand_mov_y, PLOT_SIZE, mod);
@@ -302,6 +307,7 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
     gen_plot_phase(obj_phase, hand_phase, PLOT_SIZE);
 %}
 
+%{
     %% Mask
     % phase size
     obj_phase_size = length(obj_phase);
@@ -325,5 +331,5 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
 
     QUERY_TIME = round(QUERY/(2*1e6)*10000);
     TOT_SAM_TIME = round(TOT_SAM/(2*1e6)*10000);
-
+%}
 end
