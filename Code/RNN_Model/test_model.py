@@ -23,13 +23,13 @@ def compress(dataset):
 
 # load the model
 #model = load_model('Phase.h5')
-model = load_model('AoA_20n4000r.h5')
-
+#model = load_model('AoA_20n4000r.h5')
+model = load_model('AoA_test.h5')
 # Data load
-X_load = pd.read_csv("./ML_Data/out_Atest_15_rr.csv")
+X_load = pd.read_csv("./ML_Data/out_Atest_10rsa.csv")
 X_Prepare = pd.DataFrame(X_load)
 
-Y_load = pd.read_csv("./ML_Data/label_Atest_15_rr.csv")
+Y_load = pd.read_csv("./ML_Data/label_Atest_10rsa.csv")
 Y_Prepare = pd.DataFrame(Y_load)
 
 # X_arr = np.array(test_trsps)
@@ -44,24 +44,25 @@ X_arr = feature_normalize(X_arr)
 
 # choose the part of the data  (only one RN16)
 termin = 1250
-alignm = 0
+alignm = 1000
 X_arr = X_arr[alignm:alignm+termin]
 
 # compression
 X_arr = compress(X_arr)
-print (X_arr.shape)
 
 te_split_size = X_arr.shape[1]/2
 
 # hsplit(target array, number of splited set)
 X_test = np.hsplit(X_arr, te_split_size)
 X_test = np.asarray(X_test)
+print (Y_test.shape)
 
 X_test = X_test.astype("float32")
 Y_test = Y_test.astype("float32")
 
 # Convert class vectors to binary class matrices.  0 -> 1 0; 1 -> 0 1
 y_test = keras.utils.to_categorical(Y_test)
+print (y_test.shape)
 
 score = model.evaluate(X_test, y_test, verbose=1)
 
@@ -91,7 +92,7 @@ plt.title('Test Result')
 plt.ylabel('mode')
 plt.xlabel('sample number')
 plt.legend(['Origin', 'Predict'], loc='upper right')
-#plt.show()
+plt.show()
 print("\n--- Classification report for test data ---\n")
 print(classification_report(max_y_test, max_y_pred_test))
 

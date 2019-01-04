@@ -31,18 +31,15 @@ for i in range(0,len(ad)):
         for k in range(0,(len(ad[0][0])/3)):
             fad[i][j][k] = np.mean(ad[i][j][l:l+3])
             l += 3
-print (bd)
-print ("===============================================")
-bd = np.hsplit(bd,2)
-
-print(bd)
-
-
-ad = ad.T
-#print (ad)
-ad = ad.reshape(4,2,30)
-print ("===============================================")
-print(ad)
+#print (bd)
+#print ("===============================================")
+dataset = []
+for idx in range(bd.shape[0]):
+    if idx % 2 == 0:
+        dataset.append(bd[idx,:])
+dataset = np.asarray(dataset)
+#print ("===============================================")
+#print(dataset)
 #ad = ad
 #ad = ad[0:-1]
 #ad = np.delete(ad,-1, 2)
@@ -50,5 +47,13 @@ print(ad)
 
 #print (fad)
 a = [1,2,3,4,5,6,7,8,9]
-for i in range(0,7,3):
-    a[i] += 1
+bdb = bd[:,1]
+#bdb = bdb.reshape(7,1)
+testt = np.zeros((bd.shape[0],bd.shape[1]*2)).T
+
+for i in range(0,testt.shape[1]):
+    if (i%2 == 0):
+        testt[i] = bdb
+
+print (bd)
+print (bd.T)

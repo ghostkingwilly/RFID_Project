@@ -27,16 +27,17 @@ def compress(dataset):
 num_classes = 10
 
 # Data load
-train = pd.read_csv("./ML_Data/out_2000_10r.csv")
+#train = pd.read_csv("./ML_Data/out_2000_10r.csv")
+train = pd.read_csv("./ML_Data/out_rrsa.csv")
 train_df = pd.DataFrame(train)
 
-label = pd.read_csv("./ML_Data/label_2000_10r.csv")
+label = pd.read_csv("./ML_Data/label_rrsa.csv")
 label_df = pd.DataFrame(label)
 
-X_load = pd.read_csv("./ML_Data/out_Atest_10_rr.csv")
+X_load = pd.read_csv("./ML_Data/out_Atest_rrsa.csv")
 X_Prepare = pd.DataFrame(X_load)
 
-Y_load = pd.read_csv("./ML_Data/label_Atest_10_rr.csv")
+Y_load = pd.read_csv("./ML_Data/label_Atest_rrsa.csv")
 Y_Prepare = pd.DataFrame(Y_load)
 
 train_arr = np.asarray(train_df, dtype= np.float32)
@@ -56,7 +57,7 @@ X_arr = feature_normalize(X_arr)
 # choose the part of the data  (only one RN16)
 RN16idx = 0
 termin = 1250
-alignm = 4000
+alignm = 2000
 train_arr = train_arr[RN16idx:RN16idx+termin]
 X_arr = X_arr[alignm:alignm+termin]
 #X_arr = X_arr[RN16idx:termin]
@@ -64,8 +65,6 @@ X_arr = X_arr[alignm:alignm+termin]
 # compression
 train_arr = compress(train_arr)
 X_arr = compress(X_arr)
-print (train_arr.shape)
-print (X_arr.shape)
 
 t_split_size = train_arr.shape[1]/2
 te_split_size = X_arr.shape[1]/2
@@ -133,7 +132,7 @@ max_y_pred_test = np.argmax(y_pred_test, axis=1)
 max_y_test = np.argmax(y_test, axis=1)
 
 # saved the model
-model_m.save('AoA_10n2000r4000.h5')
+model_m.save('AoA_testrrsa.h5')
 
 plt.figure(figsize=(6, 4))
 plt.plot(history.history['acc'], "g--", label="Accuracy of training data")
