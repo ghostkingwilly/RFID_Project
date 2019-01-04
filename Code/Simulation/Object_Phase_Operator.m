@@ -38,11 +38,8 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
     if(debug)
         pplot = 0;
         % number of random rn16 samples
-        RAN_TIM = 2;
-        % slope
-        slp = 50;
-        ran_a = -slp; ran_b = slp;
-        slope = (ran_b-ran_a).*rand(1,1)+ran_a;
+        RAN_TIM = 1;
+        slope = 5;
         % flag for verticle line
         flag = 0; % non verticle
     end
@@ -58,6 +55,7 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
     % Reader
     % setting reader initial coordinate [1 1]
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 
     if(debug)
         while(true)
             reader = input('Origin Reader: ');
@@ -73,8 +71,6 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
             end
 
         end
-
-
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Setting the initial information
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -100,19 +96,19 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
             end    
         end
     end
-    
     %% Generate the initial location of the user and object
 
     % Most Random
     for i=1:1:obj_num
-        obj_x_rdm = randi([uint16(reader(1))-10 uint16(reader(1))+10],1,1);
-        obj_y_rdm = randi([uint16(reader(2))-10 uint16(reader(2))+10],1,1);
+        s = rng;
+        obj_x_rdm = randi([uint16(reader(1))-5, uint16(reader(1))+5],1,1);
+        obj_y_rdm = randi([uint16(reader(2))-5, uint16(reader(2))+5],1,1);
         obj_ini(i,:) = [i, obj_x_rdm , obj_y_rdm];
     end
 
     for i=1:1:user_num
-        usr_x_rdm = randi([uint16(reader(1))-10 uint16(reader(1))+10],1,1);
-        usr_y_rdm = randi([uint16(reader(2))-10 uint16(reader(2))+10],1,1);
+        usr_x_rdm = randi([uint16(reader(1))-5 uint16(reader(1))+5],1,1);
+        usr_y_rdm = randi([uint16(reader(2))-5 uint16(reader(2))+5],1,1);
         usr_ini(i,:) = [i, usr_x_rdm , usr_y_rdm];
     end
 
@@ -190,9 +186,16 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
     r_a = 0.9; r_b = 1.07;
     interference = (r_b-r_a).*rand(1,PLOT_SIZE)+r_a;
 
+    ran_aa = -slope; ran_bb = slope;
+    slope_f = (ran_bb-ran_aa).*rand(1,1)+ran_aa;
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %  01/03 debug
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %slope_f = slope;
+    
     % function for generate the trajectory (staff_number, object_initial_place_x, object_initial_place_y, pace, distance, slope, flag, noise, interference, mode)
-    [obj_mov_x, obj_mov_y] = gen_obj_trace(obj_num, obj_or_xi, obj_or_yi, WALK_PACE, WALK_DIS, direction, slope, flag, noise, interference, mod);
-    [hand_mov_x,hand_mov_y] = gen_usr_trace(user_num, usr_or_xi, usr_or_yi, WALK_PACE, WALK_DIS, direction, slope, flag, noise, interference, mod);
+    [obj_mov_x, obj_mov_y] = gen_obj_trace(obj_num, obj_or_xi, obj_or_yi, WALK_PACE, WALK_DIS, direction, slope_f, flag, noise, interference, mod);
+    [hand_mov_x,hand_mov_y] = gen_usr_trace(user_num,usr_or_xi,usr_or_yi, WALK_PACE, WALK_DIS, direction, slope_f, flag, noise, interference, mod);
 
     % append the initial position before the generated trajectory
     obj_mov_x = [obj_or_xi, obj_mov_x]; 
@@ -228,74 +231,81 @@ function[obj_final, hand_final] = Object_Phase_Operator(mod, RAN_TIM, slope, fla
     aoa_error = normrnd(0,3.8,[1,PLOT_SIZE+1]);  % error 10
     %aoa_error = normrnd(0,5,[1,PLOT_SIZE+1]);    % error 15
     %aoa_error = normrnd(0,6.1,[1,PLOT_SIZE+1]); % error 20
-    
-    % don't move
-    if (mod == 1 || mod == 3)
-        % obj coordinate combine
-        obj = [obj_or_xi;obj_or_yi];
-        % reader to obj
-        Read2obj = norm(abs(obj-reader));
-        %x lam
-        x_lam = obj_or_xi - reader(1);
-        if (obj_or_yi >= reader)    
-            obj_aoa_tmp = abs(acos(x_lam/Read2obj)*180/pi);
-        else
-            obj_aoa_tmp = 360 - abs(acos(x_lam/Read2obj)*180/pi);
-        end
-        obj_final = obj_aoa_tmp.* ones(1,(PLOT_SIZE+1)) + aoa_error;
-    % move 
-    else
-        obj = [obj_mov_x; obj_mov_y];
-        Read2obj_tra = obj - reader.';
-
-        % The two-norm of each column
-        Read2obj_dis = sqrt(sum(abs(Read2obj_tra).^2,1));
-        x_lam = obj_mov_x - reader(1);
-        
-        for i=1:length(obj_mov_x)
-            if (obj_mov_y(1,i) >= reader(2))
-                obj_final(1,i) = abs(acos(x_lam(i)/Read2obj_dis(i))*180/pi) + aoa_error(i);
+    for k=1:obj_num
+        % don't move
+        if (mod == 1 || mod == 3)
+            % obj coordinate combine
+            obj = [obj_or_xi;obj_or_yi];
+            % reader to obj
+            Read2obj = norm(abs(obj-reader));
+            %x lam
+            x_lam = obj_or_xi - reader(1);
+            if (obj_or_yi >= reader)    
+                obj_aoa_tmp = abs(acos(x_lam/Read2obj)*180/pi);
             else
-                obj_final(1,i) = 360 - abs(acos(x_lam(i)/Read2obj_dis(i))*180/pi) + aoa_error(i);
+                obj_aoa_tmp = 360 - abs(acos(x_lam/Read2obj)*180/pi);
             end
+            obj_final = obj_aoa_tmp.* ones(1,(PLOT_SIZE+1)) + aoa_error;
+        % move 
+        else
+            obj = [obj_mov_x(k,:); obj_mov_y(k,:)];
+            Read2obj_tra = obj - reader.';
+
+            % The two-norm of each column
+            Read2obj_dis = sqrt(sum(abs(Read2obj_tra).^2,1));
+            x_lam = obj_mov_x(k,:) - reader(1);
+
+            for i=1:length(obj_mov_x)
+                if (obj_mov_y(k,i) >= reader(2))
+                    obj_final(k,i) = abs(acos(x_lam(i)/Read2obj_dis(i))*180/pi) + aoa_error(i);
+                else
+                    obj_final(k,i) = 360 - abs(acos(x_lam(i)/Read2obj_dis(i))*180/pi) + aoa_error(i);
+                end
+            end
+
         end
-        
     end
-    
-    % hand don't move
-    if (mod == 3)
-        % obj coordinate combine
-        hand = [usr_or_xi;usr_or_yi];
-        % reader to obj
-        Read2hand = norm(abs(hand-reader));
-        %x lam
-        x_lamh = usr_or_xi - reader(1);
-        if (usr_or_yi >= reader)    
-            hand_aoa_tmp = abs(acos(x_lamh/Read2obj)*180/pi);
-        else
-            hand_aoa_tmp = 360 - abs(acos(x_lamh/Read2hand)*180/pi);
-        end
-        hand_final = hand_aoa_tmp.* ones(1,(PLOT_SIZE+1)) + aoa_error;
-    % move 
-    else
-        hand = [hand_mov_x;hand_mov_y];
-        Read2hand_tra = hand - reader.';
 
-        % The two-norm of each column
-        Read2hand_dis = sqrt(sum(abs(Read2hand_tra).^2,1));
-        x_lamh = hand_mov_x - reader(1);
-        
-        for i=1:length(hand_mov_x)
-            if (hand_mov_y(1,i) >= reader(2))
-                hand_final(1,i) = abs(acos(x_lamh(i)/Read2hand_dis(i))*180/pi) + aoa_error(i);
-            else
-                hand_final(1,i) = 360 - abs(acos(x_lamh(i)/Read2hand_dis(i))*180/pi) + aoa_error(i);
-            end
+    % General Version
+    for k=1:user_num
+        if (k ~= 1)
+            aoa_error = normrnd(0,3.8,[1,PLOT_SIZE+1]);
         end
-        
+        % hand don't move
+        if (mod == 3)
+            % obj coordinate combine
+            hand = [usr_or_xi;usr_or_yi];
+            % reader to obj
+            Read2hand = norm(abs(hand-reader));
+            %x lam
+            x_lamh = usr_or_xi - reader(1);
+            if (usr_or_yi >= reader)    
+                hand_aoa_tmp = abs(acos(x_lamh/Read2obj)*180/pi);
+            else
+                hand_aoa_tmp = 360 - abs(acos(x_lamh/Read2hand)*180/pi);
+            end
+            hand_final = hand_aoa_tmp.* ones(1,(PLOT_SIZE+1)) + aoa_error;
+        % move 
+        else
+            hand = [hand_mov_x(k,:);hand_mov_y(k,:)];
+            Read2hand_tra = hand - reader.';
+
+            % The two-norm of each column
+            Read2hand_dis = sqrt(sum(abs(Read2hand_tra).^2,1));
+            x_lamh = hand_mov_x(k,:) - reader(1);
+
+            for i=1:length(hand_mov_x)
+                if (hand_mov_y(k,i) >= reader(2))
+                    hand_final(k,i) = abs(acos(x_lamh(i)/Read2hand_dis(i))*180/pi) + aoa_error(i);
+                else
+                    hand_final(k,i) = 360 - abs(acos(x_lamh(i)/Read2hand_dis(i))*180/pi) + aoa_error(i);
+                end
+            end
+
+        end
     end
     %gen_plot_traj(ini_x, ini_y, obj_mov_x, obj_mov_y, hand_mov_x, hand_mov_y, PLOT_SIZE, mod);
-
+    %hold on;
     %figure();
     %gen_plot_phase(obj_final, hand_final, PLOT_SIZE);
     %figure();
