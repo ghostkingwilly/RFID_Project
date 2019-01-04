@@ -9,6 +9,7 @@ function [out1, out2] = gen_obj_trace(obj_num, xi, yi, pace, dis, dir, slope, fl
     end
     
     for i = 1:obj_num
+        
         if(mod == 0)
             if(flag == 1) % vertical line
                 out1(i,:) = xi(i) + ones(1,(PLOT_SIZE)).*inter;

@@ -3,6 +3,9 @@ function [out1, out2] = gen_usr_trace(num, xi, yi, pace, dis, dir, slope, flag, 
     PLOT_SIZE = dis / pace;
     
     for i = 1:num
+        %ran_a = -slp; ran_b = slp;
+        %slope = (ran_b-ran_a).*rand(1,1)+ran_a;
+        
         if(flag == 1) % vertical line
             out1(i,:) = xi(i) .* ones(1,(PLOT_SIZE)) + inter;
             yi_1_r = (yi(i)+pace * dir : pace * dir : (yi(i) + dis * dir));
